@@ -10,7 +10,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
-  ChannelType
+  ChannelType,
+  EmbedBuilder
 } = require("discord.js");
 
 const TOKEN = process.env.TOKEN;
@@ -22,12 +23,16 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildPresences
   ]
 });
 
 // MAP PARA SALDO
 const moedas = new Map();
+
+// VARIÁVEL PARA CANAL DE BOAS VINDAS
+let canalBoasVindas;
 
 // ===================
 // COMANDOS SLASH
@@ -60,7 +65,14 @@ const commands = [
             .setRequired(true)),
   new SlashCommandBuilder()
     .setName("ticket")
-    .setDescription("Cria o painel de tickets")
+    .setDescription("Cria o painel de tickets"),
+  new SlashCommandBuilder()
+    .setName("boasvindas")
+    .setDescription("Configura o canal de boas-vindas")
+    .addChannelOption(option =>
+      option.setName("canal")
+            .setDescription("Canal onde a mensagem de boas-vindas será enviada")
+            .setRequired(true))
 ];
 
 // ===================
@@ -91,36 +103,31 @@ client.once("ready", () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
 });
 
+// ------------------
+// INTERAÇÕES DE COMANDOS
+// ------------------
 client.on("interactionCreate", async interaction => {
   if (interaction.isChatInputCommand()) {
 
-    // ------------------
     // PING
-    // ------------------
     if (interaction.commandName === "ping") {
       await interaction.reply("🏓 Pong!");
     }
 
-    // ------------------
     // SALDO
-    // ------------------
     if (interaction.commandName === "saldo") {
       const saldo = moedas.get(interaction.user.id) || 0;
       await interaction.reply(`💰 Você tem ${saldo} moedas.`);
     }
 
-    // ------------------
     // DAILY
-    // ------------------
     if (interaction.commandName === "daily") {
       const saldo = moedas.get(interaction.user.id) || 0;
       moedas.set(interaction.user.id, saldo + 500);
       await interaction.reply("🎁 Você ganhou 500 moedas!");
     }
 
-    // ------------------
     // TRABALHAR
-    // ------------------
     if (interaction.commandName === "trabalhar") {
       const valor = Math.floor(Math.random() * 300) + 100;
       const saldo = moedas.get(interaction.user.id) || 0;
@@ -128,9 +135,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply(`💼 Você trabalhou e ganhou ${valor} moedas!`);
     }
 
-    // ------------------
     // BAN
-    // ------------------
     if (interaction.commandName === "ban") {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers))
         return interaction.reply({ content: "❌ Você não tem permissão.", ephemeral: true });
@@ -143,18 +148,14 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply("🔨 Usuário banido.");
     }
 
-    // ------------------
     // ENVIAR
-    // ------------------
     if (interaction.commandName === "enviar") {
       const texto = interaction.options.getString("mensagem");
       await interaction.channel.send(texto);
       await interaction.reply({ content: "✅ Mensagem enviada!", ephemeral: true });
     }
 
-    // ------------------
     // LIMPAR
-    // ------------------
     if (interaction.commandName === "limpar") {
       if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
         return interaction.reply({ content: "❌ Você não tem permissão para apagar mensagens.", ephemeral: true });
@@ -164,9 +165,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: `🧹 Apaguei ${quantidade} mensagens!`, ephemeral: true });
     }
 
-    // ------------------
     // TICKET (Painel com menu suspenso)
-    // ------------------
     if (interaction.commandName === "ticket") {
       const row = new ActionRowBuilder()
         .addComponents(
@@ -182,14 +181,20 @@ client.on("interactionCreate", async interaction => {
         );
 
       await interaction.reply({
-        content: "🎟 Abra um ticket caso precise de suporte:",
+        content: "📌 Para obter Atendimento abra um ticket selecionando uma opção no menu abaixo. Fique à vontade para escolher uma opção de acordo com a necessidade.",
         components: [row]
       });
+    }
+
+    // BOAS VINDAS
+    if (interaction.commandName === "boasvindas") {
+      canalBoasVindas = interaction.options.getChannel("canal");
+      await interaction.reply({ content: `✅ Canal de boas-vindas configurado para ${canalBoasVindas}`, ephemeral: true });
     }
   }
 
   // ------------------
-  // INTERAÇÕES DOS BOTÕES E MENU DE TICKET
+  // INTERAÇÕES DE MENU E BOTÕES
   // ------------------
   if (interaction.isStringSelectMenu()) {
     if (interaction.customId === "tipo_ticket") {
@@ -208,7 +213,6 @@ client.on("interactionCreate", async interaction => {
         ]
       });
 
-      // Adicionar botões dentro do canal do ticket
       const botoes = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
@@ -254,6 +258,14 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: "✅ Usuário notificado!", ephemeral: true });
     }
   }
+});
+
+// ------------------
+// EVENTO DE BOAS VINDAS AO ENTRAR
+// ------------------
+client.on("guildMemberAdd", async member => {
+  if (!canalBoasVindas) return;
+  canalBoasVindas.send(`👋 BEM VINDO MEU NOBRE TUDO BOM? SEJA BEM VINDO A ORG RYP3 APOSTAS, ${member}`);
 });
 
 // LOGIN DO BOT
