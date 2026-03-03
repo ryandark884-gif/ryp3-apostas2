@@ -11,7 +11,8 @@ const {
   ButtonStyle,
   StringSelectMenuBuilder,
   ChannelType,
-  EmbedBuilder
+  EmbedBuilder,
+  Events
 } = require("discord.js");
 
 const TOKEN = process.env.TOKEN;
@@ -23,16 +24,19 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildPresences
+    GatewayIntentBits.MessageContent
   ]
 });
 
 // MAP PARA SALDO
 const moedas = new Map();
 
-// VARIÁVEL PARA CANAL DE BOAS VINDAS
+// VARIÁVEIS PARA BOAS VINDAS E LOGS
 let canalBoasVindas;
+let canalLogs;
+
+// TRACKING DE INVITES
+const guildInvites = new Map();
 
 // ===================
 // COMANDOS SLASH
@@ -47,8 +51,8 @@ const commands = [
     .setDescription("Banir um usuário")
     .addUserOption(option =>
       option.setName("usuario")
-        .setDescription("Usuário para banir")
-        .setRequired(true)),
+            .setDescription("Usuário para banir")
+            .setRequired(true)),
   new SlashCommandBuilder()
     .setName("enviar")
     .setDescription("O bot envia a mensagem que você digitar")
@@ -72,21 +76,19 @@ const commands = [
     .addChannelOption(option =>
       option.setName("canal")
             .setDescription("Canal onde a mensagem de boas-vindas será enviada")
-            .setRequired(true))
+            .setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("convite")
+    .setDescription("Mostra o link para adicionar o bot em outro servidor")
 ];
 
 // ===================
-// LIMPAR COMANDOS ANTIGOS E REGISTRAR NOVOS
+// REGISTRAR COMANDOS
 // ===================
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 async function registrarComandos() {
   try {
-    console.log("🗑 Limpando comandos antigos...");
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [] });
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [] });
-
-    console.log("🔄 Registrando comandos novos...");
     await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
     console.log("✅ Comandos registrados com sucesso!");
   } catch (error) {
@@ -97,15 +99,20 @@ async function registrarComandos() {
 registrarComandos();
 
 // ===================
-// EVENTOS
+// BOT ONLINE
 // ===================
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`✅ Bot online como ${client.user.tag}`);
+
+  // Pegando os convites do servidor para tracking
+  const guild = await client.guilds.fetch(GUILD_ID);
+  const invites = await guild.invites.fetch();
+  guildInvites.set(GUILD_ID, invites);
 });
 
-// ------------------
-// INTERAÇÕES DE COMANDOS
-// ------------------
+// ===================
+// COMANDOS
+// ===================
 client.on("interactionCreate", async interaction => {
   if (interaction.isChatInputCommand()) {
 
@@ -165,7 +172,7 @@ client.on("interactionCreate", async interaction => {
       await interaction.reply({ content: `🧹 Apaguei ${quantidade} mensagens!`, ephemeral: true });
     }
 
-    // TICKET (Painel com menu suspenso)
+    // TICKET
     if (interaction.commandName === "ticket") {
       const row = new ActionRowBuilder()
         .addComponents(
@@ -191,10 +198,16 @@ client.on("interactionCreate", async interaction => {
       canalBoasVindas = interaction.options.getChannel("canal");
       await interaction.reply({ content: `✅ Canal de boas-vindas configurado para ${canalBoasVindas}`, ephemeral: true });
     }
+
+    // CONVITE
+    if (interaction.commandName === "convite") {
+      const link = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&scope=bot%20applications.commands&permissions=8`;
+      await interaction.reply({ content: `🔗 Use este link para adicionar o bot em outros servidores:\n${link}`, ephemeral: true });
+    }
   }
 
   // ------------------
-  // INTERAÇÕES DE MENU E BOTÕES
+  // MENU DE TICKETS
   // ------------------
   if (interaction.isStringSelectMenu()) {
     if (interaction.customId === "tipo_ticket") {
@@ -213,6 +226,14 @@ client.on("interactionCreate", async interaction => {
         ]
       });
 
+      // EMBED NO TICKET
+      const embedTicket = new EmbedBuilder()
+        .setTitle(`🎫 Ticket: ${tipo}`)
+        .setDescription(`Olá ${interaction.user}, um ticket de **${tipo}** foi criado! Use os botões abaixo para interagir.`)
+        .setColor("Blue")
+        .setTimestamp();
+
+      // BOTÕES NO TICKET
       const botoes = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
@@ -225,10 +246,12 @@ client.on("interactionCreate", async interaction => {
             .setStyle(ButtonStyle.Primary)
         );
 
-      await canal.send({
-        content: `🎫 ${interaction.user} abriu um ticket de **${tipo}**!`,
-        components: [botoes]
-      });
+      await canal.send({ embeds: [embedTicket], components: [botoes] });
+
+      // LOGS AUTOMÁTICOS
+      if (canalLogs) {
+        canalLogs.send(`📌 ${interaction.user.tag} abriu um ticket de **${tipo}** em ${canal}`);
+      }
 
       await interaction.reply({ content: `✅ Ticket criado: ${canal}`, ephemeral: true });
     }
@@ -261,12 +284,28 @@ client.on("interactionCreate", async interaction => {
 });
 
 // ------------------
-// EVENTO DE BOAS VINDAS AO ENTRAR
+// BOAS VINDAS COM TRACKING DE INVITES
 // ------------------
 client.on("guildMemberAdd", async member => {
   if (!canalBoasVindas) return;
-  canalBoasVindas.send(`👋 BEM VINDO MEU NOBRE TUDO BOM? SEJA BEM VINDO A ORG RYP3 APOSTAS, ${member}`);
+
+  // Pegando invite usado
+  const newInvites = await member.guild.invites.fetch();
+  const oldInvites = guildInvites.get(member.guild.id);
+  const invite = newInvites.find(i => oldInvites.get(i.code).uses < i.uses);
+
+  let quemConvidou = invite ? `<@${invite.inviter.id}>` : "Desconhecido";
+
+  // Atualiza invites
+  guildInvites.set(member.guild.id, newInvites);
+
+  const embed = new EmbedBuilder()
+    .setTitle("👋 Bem-vindo!")
+    .setDescription(`BEM VINDO MEU NOBRE TUDO BOM? SEJA BEM VINDO A ORG RYP3 APOSTAS, ${member}\nConvidado por: ${quemConvidou}`)
+    .setColor("Green")
+    .setTimestamp();
+
+  canalBoasVindas.send({ embeds: [embed] });
 });
 
-// LOGIN DO BOT
 client.login(TOKEN);
