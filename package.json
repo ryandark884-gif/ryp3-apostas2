@@ -1,13 +1,13 @@
 {
-  "name": "ryp3-apostas-2",
+  "name": "org-ryp3",
   "version": "1.0.0",
-  "description": "Bot Discord RYP3 APOSTAS 2",
+  "description": "Sistema profissional ORG RYP3",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.4.5"
   }
 }
