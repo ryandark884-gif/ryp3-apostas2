@@ -1,311 +1,541 @@
+// ===============================
+// 🔥 ORG RYP3 SISTEMA PROFISSIONAL COMPLETO
+// ===============================
+
 require("dotenv").config();
-const { 
-  Client, 
-  GatewayIntentBits, 
-  SlashCommandBuilder, 
-  REST, 
-  Routes, 
+const fs = require("fs");
+const path = require("path");
+
+const {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  REST,
+  Routes,
   PermissionsBitField,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
   ChannelType,
-  EmbedBuilder,
-  Events
+  EmbedBuilder
 } = require("discord.js");
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
+// ===============================
+// 📂 BANCO PERSISTENTE
+// ===============================
+
+const dbPath = path.join(__dirname, "database.json");
+
+function loadDB() {
+  if (!fs.existsSync(dbPath)) {
+    fs.writeFileSync(dbPath, JSON.stringify({
+      users: {},
+      config: {
+        taxa: 0.05,
+        valorMinimo: 1,
+        caixaOrg: 0
+      }
+    }, null, 2));
+  }
+  return JSON.parse(fs.readFileSync(dbPath));
+}
+
+function saveDB(data) {
+  fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
+}
+
+let db = loadDB();
+
+// ===============================
+// 👑 CARGOS
+// ===============================
+
+const CARGO_DONO = "00 | RYANTX7";
+const CARGO_MEDIADOR = "・ADM DA RYPƐ RSZ";
+
+function isDono(member) {
+  return member.roles.cache.some(r => r.name === CARGO_DONO);
+}
+
+function isMediador(member) {
+  return member.roles.cache.some(r => r.name === CARGO_MEDIADOR);
+}
+
+// ===============================
+// 💰 FUNÇÕES DE USUÁRIO
+// ===============================
+
+function getUser(id) {
+  if (!db.users[id]) {
+    db.users[id] = {
+      saldo: 0,
+      pix: null,
+      vitorias: 0
+    };
+    saveDB(db);
+  }
+  return db.users[id];
+}
+
+function addSaldo(id, valor) {
+  const user = getUser(id);
+  user.saldo += valor;
+  saveDB(db);
+}
+
+function removeSaldo(id, valor) {
+  const user = getUser(id);
+  user.saldo -= valor;
+  if (user.saldo < 0) user.saldo = 0;
+  saveDB(db);
+}
+
+function addCaixa(valor) {
+  db.config.caixaOrg += valor;
+  saveDB(db);
+}
+
+function getTaxa() {
+  return db.config.taxa;
+}
+
+function setTaxa(valor) {
+  db.config.taxa = valor;
+  saveDB(db);
+}
+
+function getCaixa() {
+  return db.config.caixaOrg;
+}
+
+// ===============================
+// 🎮 FILA GLOBAL
+// ===============================
+
+let filaAtiva = null;
+
+// ===============================
+// 🤖 CLIENT
+// ===============================
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
   ]
 });
 
-// MAP PARA SALDO
-const moedas = new Map();
+// ===============================
+// 📜 COMANDOS SLASH
+// ===============================
 
-// VARIÁVEIS PARA BOAS VINDAS E LOGS
-let canalBoasVindas;
-let canalLogs;
-
-// TRACKING DE INVITES
-const guildInvites = new Map();
-
-// ===================
-// COMANDOS SLASH
-// ===================
 const commands = [
-  new SlashCommandBuilder().setName("ping").setDescription("Ver latência do bot"),
+
   new SlashCommandBuilder().setName("saldo").setDescription("Ver seu saldo"),
-  new SlashCommandBuilder().setName("daily").setDescription("Resgatar recompensa diária"),
-  new SlashCommandBuilder().setName("trabalhar").setDescription("Trabalhar e ganhar moedas"),
+
   new SlashCommandBuilder()
-    .setName("ban")
-    .setDescription("Banir um usuário")
-    .addUserOption(option =>
-      option.setName("usuario")
-            .setDescription("Usuário para banir")
-            .setRequired(true)),
+    .setName("addsaldo")
+    .setDescription("Adicionar saldo (Dono)")
+    .addUserOption(o => o.setName("usuario").setDescription("Usuário").setRequired(true))
+    .addNumberOption(o => o.setName("valor").setDescription("Valor").setRequired(true)),
+
   new SlashCommandBuilder()
-    .setName("enviar")
-    .setDescription("O bot envia a mensagem que você digitar")
-    .addStringOption(option =>
-      option.setName("mensagem")
-            .setDescription("A mensagem que o bot vai enviar")
-            .setRequired(true)),
+    .setName("removersaldo")
+    .setDescription("Remover saldo (Dono)")
+    .addUserOption(o => o.setName("usuario").setDescription("Usuário").setRequired(true))
+    .addNumberOption(o => o.setName("valor").setDescription("Valor").setRequired(true)),
+
+  new SlashCommandBuilder().setName("ranking").setDescription("Ranking de vitórias"),
+
   new SlashCommandBuilder()
-    .setName("limpar")
-    .setDescription("Apaga uma quantidade de mensagens")
-    .addIntegerOption(option =>
-      option.setName("quantidade")
-            .setDescription("Quantidade de mensagens a apagar")
-            .setRequired(true)),
+    .setName("configtaxa")
+    .setDescription("Alterar taxa (Dono)")
+    .addNumberOption(o => o.setName("valor").setDescription("Nova taxa").setRequired(true)),
+
+  new SlashCommandBuilder().setName("caixa").setDescription("Ver caixa da org"),
+
   new SlashCommandBuilder()
-    .setName("ticket")
-    .setDescription("Cria o painel de tickets"),
+    .setName("criarfila")
+    .setDescription("Criar fila (Dono)")
+    .addStringOption(o =>
+      o.setName("modo")
+        .setDescription("1x1 / 2x2 / 3x3 / 4x4")
+        .setRequired(true))
+    .addNumberOption(o =>
+      o.setName("valor")
+        .setDescription("Valor base")
+        .setRequired(true)),
+
   new SlashCommandBuilder()
-    .setName("boasvindas")
-    .setDescription("Configura o canal de boas-vindas")
-    .addChannelOption(option =>
-      option.setName("canal")
-            .setDescription("Canal onde a mensagem de boas-vindas será enviada")
-            .setRequired(true)),
+    .setName("vencedor")
+    .setDescription("Confirmar vencedor (Mediador)")
+    .addUserOption(o =>
+      o.setName("usuario")
+        .setDescription("Vencedor")
+        .setRequired(true)),
+
   new SlashCommandBuilder()
-    .setName("convite")
-    .setDescription("Mostra o link para adicionar o bot em outro servidor")
+    .setName("pix")
+    .setDescription("Configurar seu PIX (Mediador)")
+    .addStringOption(o =>
+      o.setName("chave")
+        .setDescription("Sua chave PIX")
+        .setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("roleta")
+    .setDescription("Apostar na roleta")
+    .addNumberOption(o =>
+      o.setName("valor")
+        .setDescription("Valor da aposta")
+        .setRequired(true))
 ];
 
-// ===================
-// REGISTRAR COMANDOS
-// ===================
+// ===============================
+// 🔄 REGISTRAR COMANDOS
+// ===============================
+
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-async function registrarComandos() {
-  try {
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-    console.log("✅ Comandos registrados com sucesso!");
-  } catch (error) {
-    console.error(error);
-  }
+async function registrar() {
+  await rest.put(
+    Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+    { body: commands }
+  );
+  console.log("✅ Comandos registrados");
 }
 
-registrarComandos();
+registrar();
+// ===============================
+// 🎯 INTERAÇÕES
+// ===============================
 
-// ===================
-// BOT ONLINE
-// ===================
-client.once("ready", async () => {
-  console.log(`✅ Bot online como ${client.user.tag}`);
-
-  // Pegando os convites do servidor para tracking
-  const guild = await client.guilds.fetch(GUILD_ID);
-  const invites = await guild.invites.fetch();
-  guildInvites.set(GUILD_ID, invites);
-});
-
-// ===================
-// COMANDOS
-// ===================
 client.on("interactionCreate", async interaction => {
+
   if (interaction.isChatInputCommand()) {
 
-    // PING
-    if (interaction.commandName === "ping") {
-      await interaction.reply("🏓 Pong!");
-    }
-
-    // SALDO
+    // ================= SALDO =================
     if (interaction.commandName === "saldo") {
-      const saldo = moedas.get(interaction.user.id) || 0;
-      await interaction.reply(`💰 Você tem ${saldo} moedas.`);
+      const user = getUser(interaction.user.id);
+      return interaction.reply(`💰 Seu saldo: ${user.saldo.toFixed(2)}`);
     }
 
-    // DAILY
-    if (interaction.commandName === "daily") {
-      const saldo = moedas.get(interaction.user.id) || 0;
-      moedas.set(interaction.user.id, saldo + 500);
-      await interaction.reply("🎁 Você ganhou 500 moedas!");
+    // ================= ADDSALDO =================
+    if (interaction.commandName === "addsaldo") {
+      if (!isDono(interaction.member))
+        return interaction.reply({ content: "❌ Apenas dono.", ephemeral: true });
+
+      const usuario = interaction.options.getUser("usuario");
+      const valor = interaction.options.getNumber("valor");
+
+      addSaldo(usuario.id, valor);
+
+      return interaction.reply(`✅ ${valor} adicionados a ${usuario.username}`);
     }
 
-    // TRABALHAR
-    if (interaction.commandName === "trabalhar") {
-      const valor = Math.floor(Math.random() * 300) + 100;
-      const saldo = moedas.get(interaction.user.id) || 0;
-      moedas.set(interaction.user.id, saldo + valor);
-      await interaction.reply(`💼 Você trabalhou e ganhou ${valor} moedas!`);
+    // ================= REMOVERSALDO =================
+    if (interaction.commandName === "removersaldo") {
+      if (!isDono(interaction.member))
+        return interaction.reply({ content: "❌ Apenas dono.", ephemeral: true });
+
+      const usuario = interaction.options.getUser("usuario");
+      const valor = interaction.options.getNumber("valor");
+
+      removeSaldo(usuario.id, valor);
+
+      return interaction.reply(`✅ ${valor} removidos de ${usuario.username}`);
     }
 
-    // BAN
-    if (interaction.commandName === "ban") {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.BanMembers))
-        return interaction.reply({ content: "❌ Você não tem permissão.", ephemeral: true });
+    // ================= RANKING =================
+    if (interaction.commandName === "ranking") {
+      const ranking = Object.entries(db.users)
+        .sort((a, b) => b[1].vitorias - a[1].vitorias)
+        .slice(0, 10);
 
-      const user = interaction.options.getUser("usuario");
-      const member = interaction.guild.members.cache.get(user.id);
-      if (!member) return interaction.reply("Usuário não encontrado.");
+      if (ranking.length === 0)
+        return interaction.reply("❌ Ainda sem ranking.");
 
-      await member.ban();
-      await interaction.reply("🔨 Usuário banido.");
+      let texto = ranking.map((u, i) =>
+        `${i + 1}º - <@${u[0]}> | 🏆 ${u[1].vitorias}`
+      ).join("\n");
+
+      return interaction.reply(`🏆 Ranking:\n\n${texto}`);
     }
 
-    // ENVIAR
-    if (interaction.commandName === "enviar") {
-      const texto = interaction.options.getString("mensagem");
-      await interaction.channel.send(texto);
-      await interaction.reply({ content: "✅ Mensagem enviada!", ephemeral: true });
+    // ================= CONFIG TAXA =================
+    if (interaction.commandName === "configtaxa") {
+      if (!isDono(interaction.member))
+        return interaction.reply({ content: "❌ Apenas dono.", ephemeral: true });
+
+      const valor = interaction.options.getNumber("valor");
+      setTaxa(valor);
+
+      return interaction.reply(`✅ Nova taxa: ${valor}`);
     }
 
-    // LIMPAR
-    if (interaction.commandName === "limpar") {
-      if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
-        return interaction.reply({ content: "❌ Você não tem permissão para apagar mensagens.", ephemeral: true });
-
-      const quantidade = interaction.options.getInteger("quantidade");
-      await interaction.channel.bulkDelete(quantidade, true);
-      await interaction.reply({ content: `🧹 Apaguei ${quantidade} mensagens!`, ephemeral: true });
+    // ================= CAIXA =================
+    if (interaction.commandName === "caixa") {
+      return interaction.reply(`🏢 Caixa da ORG: ${getCaixa().toFixed(2)}`);
     }
 
-    // TICKET
+    // ================= CRIAR FILA =================
+    if (interaction.commandName === "criarfila") {
+
+      if (!isDono(interaction.member))
+        return interaction.reply({ content: "❌ Apenas dono.", ephemeral: true });
+
+      if (filaAtiva)
+        return interaction.reply({ content: "❌ Já existe fila ativa.", ephemeral: true });
+
+      const modo = interaction.options.getString("modo");
+      const valor = interaction.options.getNumber("valor");
+
+      filaAtiva = {
+        modo,
+        valorBase: valor,
+        jogadores: [],
+        mediador: null
+      };
+
+      const taxa = getTaxa();
+      const total = valor + taxa;
+
+      const embed = new EmbedBuilder()
+        .setTitle("🔥 Fila Aberta")
+        .setDescription(
+          `🎮 Modo: ${modo}\n` +
+          `💰 Valor Base: ${valor}\n` +
+          `🏢 Taxa: ${taxa}\n` +
+          `💵 Total: ${total}\n\n` +
+          `👥 Jogadores: 0/2`
+        )
+        .setColor("Red");
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("entrar_fila")
+          .setLabel("Entrar")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("mediador_fila")
+          .setLabel("Mediador")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      return interaction.reply({ embeds: [embed], components: [row] });
+    }
+
+    // ================= VENCEDOR =================
+    if (interaction.commandName === "vencedor") {
+
+      if (!filaAtiva)
+        return interaction.reply({ content: "❌ Nenhuma fila ativa.", ephemeral: true });
+
+      if (!isMediador(interaction.member))
+        return interaction.reply({ content: "❌ Apenas mediador.", ephemeral: true });
+
+      const vencedor = interaction.options.getUser("usuario");
+
+      if (!filaAtiva.jogadores.includes(vencedor.id))
+        return interaction.reply({ content: "❌ Não está na partida.", ephemeral: true });
+
+      const valorBase = filaAtiva.valorBase;
+      const taxa = getTaxa();
+
+      const premio = valorBase * 2;
+      const lucroOrg = taxa * 2;
+
+      addSaldo(vencedor.id, premio);
+      addCaixa(lucroOrg);
+
+      db.users[vencedor.id].vitorias += 1;
+      saveDB(db);
+
+      filaAtiva = null;
+
+      return interaction.reply(
+        `🏆 ${vencedor} venceu!\n💰 Recebeu ${premio}\n🏢 Org ganhou ${lucroOrg}`
+      );
+    }
+
+    // ================= PIX =================
+    if (interaction.commandName === "pix") {
+      if (!isMediador(interaction.member))
+        return interaction.reply({ content: "❌ Apenas mediador.", ephemeral: true });
+
+      const chave = interaction.options.getString("chave");
+      db.users[interaction.user.id].pix = chave;
+      saveDB(db);
+
+      return interaction.reply("✅ PIX configurado com sucesso.");
+    }
+
+    // ================= ROLETA =================
+    if (interaction.commandName === "roleta") {
+
+      const valor = interaction.options.getNumber("valor");
+      const user = getUser(interaction.user.id);
+
+      if (user.saldo < valor)
+        return interaction.reply({ content: "❌ Saldo insuficiente.", ephemeral: true });
+
+      removeSaldo(interaction.user.id, valor);
+
+      const ganhou = Math.random() < 0.5;
+
+      if (ganhou) {
+        const premio = valor * 2;
+        addSaldo(interaction.user.id, premio);
+        return interaction.reply(`🎰 Você ganhou ${premio}!`);
+      } else {
+        addCaixa(valor);
+        return interaction.reply("🎰 Você perdeu! Boa sorte na próxima.");
+      }
+    }
+
+  }
+
+  // ================= BOTÕES FILA =================
+  if (interaction.isButton()) {
+
+    if (!filaAtiva)
+      return interaction.reply({ content: "❌ Nenhuma fila ativa.", ephemeral: true });
+
+    if (interaction.customId === "entrar_fila") {
+
+      if (filaAtiva.jogadores.includes(interaction.user.id))
+        return interaction.reply({ content: "⚠️ Já entrou.", ephemeral: true });
+
+      if (filaAtiva.jogadores.length >= 2)
+        return interaction.reply({ content: "❌ Fila cheia.", ephemeral: true });
+
+      const taxa = getTaxa();
+      const total = filaAtiva.valorBase + taxa;
+      const user = getUser(interaction.user.id);
+
+      if (user.saldo < total)
+        return interaction.reply({ content: "❌ Saldo insuficiente.", ephemeral: true });
+
+      removeSaldo(interaction.user.id, total);
+      filaAtiva.jogadores.push(interaction.user.id);
+
+      if (filaAtiva.jogadores.length === 2) {
+        return interaction.update({
+          content: "🔥 Fila fechada! Aguardando mediador confirmar.",
+          embeds: [],
+          components: []
+        });
+      }
+
+      return interaction.reply({ content: "✅ Entrou na fila!", ephemeral: true });
+    }
+
+    if (interaction.customId === "mediador_fila") {
+
+      if (!isMediador(interaction.member))
+        return interaction.reply({ content: "❌ Apenas mediador.", ephemeral: true });
+
+      filaAtiva.mediador = interaction.user.id;
+
+      return interaction.reply({ content: "✅ Você assumiu como mediador.", ephemeral: true });
+    }
+
+  }
+
+});
+// ===============================
+// 🎛️ PAINEL CENTRAL
+// ===============================
+
+client.once("ready", () => {
+  console.log(`🔥 Bot online como ${client.user.tag}`);
+});
+
+// ===============================
+// 🎟️ SISTEMA DE TICKET
+// ===============================
+
+client.on("interactionCreate", async interaction => {
+
+  if (interaction.isChatInputCommand()) {
+
     if (interaction.commandName === "ticket") {
-      const row = new ActionRowBuilder()
-        .addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId("tipo_ticket")
-            .setPlaceholder("Selecione o tipo de suporte")
-            .addOptions([
-              { label: "⚒️・suporte", value: "suporte", description: "Suporte geral" },
-              { label: "💰・receber premiações", value: "premiacao", description: "Receber premiações" },
-              { label: "💸・reembolso", value: "reembolso", description: "Problemas com pagamento" },
-              { label: "🔰・vagas staff", value: "vagas", description: "Suporte para vagas staff" }
-            ])
-        );
 
-      await interaction.reply({
-        content: "📌 Para obter Atendimento abra um ticket selecionando uma opção no menu abaixo. Fique à vontade para escolher uma opção de acordo com a necessidade.",
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("abrir_ticket")
+          .setLabel("🎟️ Abrir Ticket")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      return interaction.reply({
+        content: "Clique abaixo para abrir um ticket.",
         components: [row]
       });
     }
-
-    // BOAS VINDAS
-    if (interaction.commandName === "boasvindas") {
-      canalBoasVindas = interaction.options.getChannel("canal");
-      await interaction.reply({ content: `✅ Canal de boas-vindas configurado para ${canalBoasVindas}`, ephemeral: true });
-    }
-
-    // CONVITE
-    if (interaction.commandName === "convite") {
-      const link = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&scope=bot%20applications.commands&permissions=8`;
-      await interaction.reply({ content: `🔗 Use este link para adicionar o bot em outros servidores:\n${link}`, ephemeral: true });
-    }
   }
 
-  // ------------------
-  // MENU DE TICKETS
-  // ------------------
-  if (interaction.isStringSelectMenu()) {
-    if (interaction.customId === "tipo_ticket") {
-      const tipo = interaction.values[0];
-      const nomeCanal = `ticket-${interaction.user.username}-${tipo}`;
-      const existingChannel = interaction.guild.channels.cache.find(c => c.name === nomeCanal);
-      if (existingChannel)
-        return interaction.reply({ content: "❌ Você já tem um ticket desse tipo aberto!", ephemeral: true });
+  if (interaction.isButton()) {
+
+    if (interaction.customId === "abrir_ticket") {
+
+      const nomeCanal = `ticket-${interaction.user.username}`;
 
       const canal = await interaction.guild.channels.create({
         name: nomeCanal,
         type: ChannelType.GuildText,
         permissionOverwrites: [
-          { id: interaction.guild.id, deny: ["ViewChannel"] },
-          { id: interaction.user.id, allow: ["ViewChannel", "SendMessages"] }
+          {
+            id: interaction.guild.id,
+            deny: ["ViewChannel"]
+          },
+          {
+            id: interaction.user.id,
+            allow: ["ViewChannel", "SendMessages"]
+          }
         ]
       });
 
-      // EMBED NO TICKET
-      const embedTicket = new EmbedBuilder()
-        .setTitle(`🎫 Ticket: ${tipo}`)
-        .setDescription(`Olá ${interaction.user}, um ticket de **${tipo}** foi criado! Use os botões abaixo para interagir.`)
-        .setColor("Blue")
-        .setTimestamp();
+      const embed = new EmbedBuilder()
+        .setTitle("🎟️ Ticket Aberto")
+        .setDescription("Descreva seu problema.\nUm staff irá ajudar.")
+        .setColor("Blue");
 
-      // BOTÕES NO TICKET
-      const botoes = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId("finalizar_ticket")
-            .setLabel("Finalizar Ticket")
-            .setStyle(ButtonStyle.Danger),
-          new ButtonBuilder()
-            .setCustomId("notificar_usuario")
-            .setLabel("Notificar Usuário")
-            .setStyle(ButtonStyle.Primary)
-        );
+      const fechar = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("fechar_ticket")
+          .setLabel("❌ Fechar Ticket")
+          .setStyle(ButtonStyle.Danger)
+      );
 
-      await canal.send({ embeds: [embedTicket], components: [botoes] });
+      await canal.send({ embeds: [embed], components: [fechar] });
 
-      // LOGS AUTOMÁTICOS
-      if (canalLogs) {
-        canalLogs.send(`📌 ${interaction.user.tag} abriu um ticket de **${tipo}** em ${canal}`);
-      }
+      return interaction.reply({ content: `✅ Ticket criado: ${canal}`, ephemeral: true });
+    }
 
-      await interaction.reply({ content: `✅ Ticket criado: ${canal}`, ephemeral: true });
+    if (interaction.customId === "fechar_ticket") {
+
+      if (!interaction.channel.name.startsWith("ticket-"))
+        return interaction.reply({ content: "❌ Não é um ticket.", ephemeral: true });
+
+      await interaction.reply("🔒 Fechando ticket...");
+      setTimeout(() => {
+        interaction.channel.delete();
+      }, 2000);
     }
   }
 
-  // ------------------
-  // BOTÕES DENTRO DO TICKET
-  // ------------------
-  if (interaction.isButton()) {
-    if (interaction.customId === "finalizar_ticket") {
-      if (interaction.channel.name.startsWith("ticket-")) {
-        await interaction.channel.delete();
-      } else {
-        await interaction.reply({ content: "❌ Este canal não é um ticket!", ephemeral: true });
-      }
-    }
-
-    if (interaction.customId === "notificar_usuario") {
-      const match = interaction.channel.name.match(/^ticket-(.+)-/);
-      if (!match) return interaction.reply({ content: "❌ Não foi possível identificar o usuário!", ephemeral: true });
-
-      const username = match[1];
-      const member = interaction.guild.members.cache.find(m => m.user.username === username);
-      if (!member) return interaction.reply({ content: "❌ Usuário não encontrado!", ephemeral: true });
-
-      await interaction.channel.send(`${member}`);
-      await interaction.reply({ content: "✅ Usuário notificado!", ephemeral: true });
-    }
-  }
 });
 
-// ------------------
-// BOAS VINDAS COM TRACKING DE INVITES
-// ------------------
-client.on("guildMemberAdd", async member => {
-  if (!canalBoasVindas) return;
-
-  // Pegando invite usado
-  const newInvites = await member.guild.invites.fetch();
-  const oldInvites = guildInvites.get(member.guild.id);
-  const invite = newInvites.find(i => oldInvites.get(i.code).uses < i.uses);
-
-  let quemConvidou = invite ? `<@${invite.inviter.id}>` : "Desconhecido";
-
-  // Atualiza invites
-  guildInvites.set(member.guild.id, newInvites);
-
-  const embed = new EmbedBuilder()
-    .setTitle("👋 Bem-vindo!")
-    .setDescription(`BEM VINDO MEU NOBRE TUDO BOM? SEJA BEM VINDO A ORG RYP3 APOSTAS, ${member}\nConvidado por: ${quemConvidou}`)
-    .setColor("Green")
-    .setTimestamp();
-
-  canalBoasVindas.send({ embeds: [embed] });
-});
+// ===============================
+// 🔑 LOGIN FINAL
+// ===============================
 
 client.login(TOKEN);
