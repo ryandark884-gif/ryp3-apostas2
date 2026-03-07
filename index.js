@@ -1,192 +1,110 @@
-const {
-Client,
-GatewayIntentBits,
-EmbedBuilder,
-ActionRowBuilder,
-StringSelectMenuBuilder,
-ButtonBuilder,
-ButtonStyle,
-PermissionsBitField,
-SlashCommandBuilder,
-REST,
-Routes
+const { 
+Client, 
+GatewayIntentBits, 
+ActionRowBuilder, 
+ButtonBuilder, 
+ButtonStyle, 
+StringSelectMenuBuilder, 
+ChannelType, 
+PermissionsBitField, 
+SlashCommandBuilder, 
+EmbedBuilder 
 } = require("discord.js")
-
-const TOKEN = process.env.TOKEN
-const CLIENT_ID = process.env.CLIENT_ID
-const GUILD_ID = process.env.GUILD_ID
 
 const client = new Client({
 intents: [
 GatewayIntentBits.Guilds,
 GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent
+GatewayIntentBits.MessageContent,
+GatewayIntentBits.GuildMembers
 ]
 })
 
-/* ================= COMANDOS ================= */
-
-const commands = [
-
-new SlashCommandBuilder()
-.setName("ticket")
-.setDescription("Enviar painel de tickets"),
-
-new SlashCommandBuilder()
-.setName("enviar-mensagem")
-.setDescription("Enviar uma mensagem pelo bot")
-.addStringOption(option =>
-option.setName("mensagem")
-.setDescription("Mensagem que o bot vai enviar")
-.setRequired(true)
-),
-
-new SlashCommandBuilder()
-.setName("limpar")
-.setDescription("Apagar mensagens")
-.addIntegerOption(option =>
-option.setName("quantidade")
-.setDescription("Quantidade de mensagens")
-.setRequired(true)
-)
-
-].map(cmd => cmd.toJSON())
-
-const rest = new REST({ version: "10" }).setToken(TOKEN)
-
-;(async () => {
-try {
-
-await rest.put(
-Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-{ body: commands }
-)
-
-console.log("Comandos registrados")
-
-} catch (error) {
-console.error(error)
-}
-})()
-
-/* ================= BOT ONLINE ================= */
+const STAFF_ROLE = "1463148647972737118"
+const LOG_CHANNEL = "1473752371128696885"
 
 client.once("ready", () => {
-
-console.log(`Bot ligado como ${client.user.tag}`)
-
+console.log(`Bot online: ${client.user.tag}`)
 })
 
-/* ================= COMANDOS ================= */
+client.on("interactionCreate", async interaction => {
 
-client.on("interactionCreate", async (interaction) => {
+if(interaction.isChatInputCommand()){
 
-if (!interaction.isChatInputCommand()) return
-
-/* ===== PAINEL TICKET ===== */
-
-if (interaction.commandName === "ticket") {
+if(interaction.commandName === "ticket"){
 
 const embed = new EmbedBuilder()
-.setTitle("📩 Central de Atendimento")
-.setDescription(`Selecione abaixo o tipo de atendimento.`)
+.setTitle("🎟️ Central de Atendimento")
+.setDescription("Selecione uma opção abaixo para abrir um ticket.")
 .setColor("Blue")
 
-const menu = new ActionRowBuilder().addComponents(
-
-new StringSelectMenuBuilder()
-.setCustomId("menu_ticket")
-.setPlaceholder("Selecione uma opção")
+const menu = new StringSelectMenuBuilder()
+.setCustomId("ticket_menu")
+.setPlaceholder("Escolha uma opção")
 .addOptions([
 {
-label: "SUPORTE",
-emoji: "⚒️",
-value: "suporte"
+label:"SUPORTE",
+description:"Abrir ticket de suporte",
+emoji:"⚒️",
+value:"suporte"
 },
 {
-label: "REEMBOLSO",
-emoji: "💸",
-value: "reembolso"
+label:"REEMBOLSO",
+description:"Solicitar reembolso",
+emoji:"💸",
+value:"reembolso"
 },
 {
-label: "VAGAS",
-emoji: "👤",
-value: "vagas"
+label:"VAGAS",
+description:"Solicitar vaga",
+emoji:"👤",
+value:"vagas"
 },
 {
-label: "RECEBER PREMIAÇÕES",
-emoji: "💰",
-value: "premio"
+label:"RECEBER PREMIAÇÕES",
+description:"Receber premiação",
+emoji:"💰",
+value:"premio"
 }
 ])
 
-)
+const row = new ActionRowBuilder().addComponents(menu)
 
-interaction.reply({ embeds:[embed], components:[menu] })
-
-}
-
-/* ===== ENVIAR MENSAGEM ===== */
-
-if (interaction.commandName === "enviar-mensagem") {
-
-if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-
-return interaction.reply({
-content:"❌ Apenas administradores podem usar.",
-ephemeral:true
-})
+interaction.reply({embeds:[embed],components:[row]})
 
 }
+
+if(interaction.commandName === "enviarmensagem"){
 
 const msg = interaction.options.getString("mensagem")
 
 await interaction.channel.send(msg)
 
-interaction.reply({
-content:"✅ Mensagem enviada.",
-ephemeral:true
-})
+await interaction.reply({content:"✅ Mensagem enviada.",ephemeral:true})
 
 }
 
-/* ===== LIMPAR CHAT ===== */
-
-if (interaction.commandName === "limpar") {
-
-if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-
-return interaction.reply({
-content:"❌ Apenas administradores podem usar.",
-ephemeral:true
-})
-
-}
+if(interaction.commandName === "limpar"){
 
 const quantidade = interaction.options.getInteger("quantidade")
 
 await interaction.channel.bulkDelete(quantidade)
 
-interaction.reply({
-content:`🧹 ${quantidade} mensagens apagadas.`,
-ephemeral:true
-})
+interaction.reply({content:`🧹 ${quantidade} mensagens apagadas.`,ephemeral:true})
 
 }
 
-})
+}
 
-/* ================= MENU TICKET ================= */
+if(interaction.isStringSelectMenu()){
 
-client.on("interactionCreate", async interaction => {
+if(interaction.customId === "ticket_menu"){
 
-if (!interaction.isStringSelectMenu()) return
-
-if (interaction.customId === "menu_ticket") {
+const escolha = interaction.values[0]
 
 const canal = await interaction.guild.channels.create({
 name:`ticket-${interaction.user.username}`,
-type:0,
+type:ChannelType.GuildText,
 permissionOverwrites:[
 {
 id:interaction.guild.id,
@@ -198,94 +116,107 @@ allow:[
 PermissionsBitField.Flags.ViewChannel,
 PermissionsBitField.Flags.SendMessages
 ]
+},
+{
+id:STAFF_ROLE,
+allow:[
+PermissionsBitField.Flags.ViewChannel,
+PermissionsBitField.Flags.SendMessages
+]
 }
 ]
 })
 
-const botoes = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("fechar_ticket")
-.setLabel("🚫 | FECHAR TICKET")
-.setStyle(ButtonStyle.Danger),
-
-new ButtonBuilder()
-.setCustomId("notificar")
-.setLabel("👤 | NOTIFICAR USUÁRIO")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("add_user")
-.setLabel("🚨 | ADICIONAR USUÁRIO")
-.setStyle(ButtonStyle.Secondary)
-
-)
-
 const embed = new EmbedBuilder()
 .setTitle("🎫 Ticket aberto")
-.setDescription(`Usuário: ${interaction.user}
-
-Aguarde um administrador.`)
+.setDescription(`Usuário: ${interaction.user}\nCategoria: **${escolha}**\n\nAguarde um administrador.`)
 .setColor("Green")
 
-canal.send({ embeds:[embed], components:[botoes] })
+const fechar = new ButtonBuilder()
+.setCustomId("fechar_ticket")
+.setLabel("FECHAR TICKET")
+.setEmoji("🚫")
+.setStyle(ButtonStyle.Danger)
 
-interaction.reply({
-content:`✅ Ticket criado: ${canal}`,
-ephemeral:true
-})
+const notificar = new ButtonBuilder()
+.setCustomId("notificar_user")
+.setLabel("NOTIFICAR USUÁRIO")
+.setEmoji("👤")
+.setStyle(ButtonStyle.Primary)
+
+const adicionar = new ButtonBuilder()
+.setCustomId("add_user")
+.setLabel("ADICIONAR USUÁRIO")
+.setEmoji("🚨")
+.setStyle(ButtonStyle.Secondary)
+
+const row = new ActionRowBuilder().addComponents(fechar,notificar,adicionar)
+
+canal.send({embeds:[embed],components:[row]})
+
+interaction.reply({content:`✅ Ticket criado: ${canal}`,ephemeral:true})
+
+const log = interaction.guild.channels.cache.get(LOG_CHANNEL)
+
+if(log){
+log.send(`📂 Ticket aberto por ${interaction.user}`)
+}
 
 }
 
-})
+}
 
-/* ================= BOTÕES ================= */
+if(interaction.isButton()){
 
-client.on("interactionCreate", async interaction => {
-
-if (!interaction.isButton()) return
-
-if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+if(!interaction.member.roles.cache.has(STAFF_ROLE)){
 
 return interaction.reply({
-content:"❌ Apenas administradores podem usar os botões.",
+content:"❌ Apenas administradores podem usar estes botões.",
 ephemeral:true
 })
 
 }
 
-/* FECHAR */
-
-if (interaction.customId === "fechar_ticket") {
+if(interaction.customId === "fechar_ticket"){
 
 interaction.channel.delete()
 
+const log = interaction.guild.channels.cache.get(LOG_CHANNEL)
+
+if(log){
+log.send(`🔒 Ticket fechado por ${interaction.user}`)
 }
 
-/* NOTIFICAR */
+}
 
-if (interaction.customId === "notificar") {
+if(interaction.customId === "notificar_user"){
 
-const user = interaction.channel.name.split("ticket-")[1]
+const nome = interaction.channel.name
+const userName = nome.replace("ticket-","")
+
+const membro = interaction.guild.members.cache.find(m => m.user.username === userName)
+
+if(!membro){
+return interaction.reply({content:"❌ Usuário não encontrado.",ephemeral:true})
+}
+
+membro.send(`📩 Você abriu um ticket no servidor **${interaction.guild.name}**.\nNossa equipe já irá atender você.`)
+
+interaction.reply({content:"📨 Usuário notificado.",ephemeral:true})
+
+}
+
+if(interaction.customId === "add_user"){
 
 interaction.reply({
-content:"📩 Usuário foi notificado.",
+content:"Use o comando **/adduser** para adicionar alguém.",
 ephemeral:true
 })
 
 }
 
-/* ADICIONAR */
-
-if (interaction.customId === "add_user") {
-
-interaction.reply({
-content:"Use /adduser para adicionar alguém (sistema simples).",
-ephemeral:true
-})
-
 }
 
 })
 
-client.login(TOKEN)
+client.login("MTQ3ODIyODI3MTQwMDQ4ODk5MA.GkYFsl.ct0RLya3lHIoISTfDh3YhGGJb1SqwktSxqs5NE")
