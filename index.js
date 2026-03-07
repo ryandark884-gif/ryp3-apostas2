@@ -16,7 +16,7 @@ const {
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID; // ID do servidor de teste
+const GUILD_ID = process.env.GUILD_ID; // ID do seu servidor de teste
 
 const STAFF_ROLE = "1463198259186106429"; // cargo que pode acessar mod painel
 const LOG_CHANNEL = "1473752382541402162";
@@ -168,9 +168,16 @@ client.on("interactionCreate", async interaction => {
   if(interaction.isStringSelectMenu()){
     if(interaction.customId === "ticket_menu"){
       const user = interaction.user;
+
+      // Pegando a categoria de atendimento pelo nome exato
+      const category = interaction.guild.channels.cache.find(
+        c => c.type === ChannelType.GuildCategory && c.name === "╭─ 🛎️・ATENDIMENTO"
+      );
+
       const channel = await interaction.guild.channels.create({
         name:`ticket-${user.username}`,
         type: ChannelType.GuildText,
+        parent: category ? category.id : undefined,
         permissionOverwrites:[
           { id: interaction.guild.id, deny:[PermissionsBitField.Flags.ViewChannel] },
           { id: user.id, allow:[PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
