@@ -36,23 +36,52 @@ const invites = new Map()
 
 const commands=[
 
-new SlashCommandBuilder()
-.setName("ticket")
-.setDescription("Abrir painel de ticket"),
+new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
+
+new SlashCommandBuilder().setName("ticket").setDescription("Abrir ticket"),
+
+new SlashCommandBuilder().setName("modpainel").setDescription("Painel moderação"),
 
 new SlashCommandBuilder()
-.setName("modpainel")
-.setDescription("Abrir painel de moderação"),
+.setName("enviarmensagem")
+.setDescription("Enviar mensagem")
+.addStringOption(o=>o.setName("mensagem").setDescription("Mensagem").setRequired(true)),
 
 new SlashCommandBuilder()
-.setName("help")
-.setDescription("Ver comandos")
+.setName("limpar")
+.setDescription("Limpar mensagens")
+.addIntegerOption(o=>o.setName("quantidade").setDescription("Quantidade").setRequired(true)),
+
+new SlashCommandBuilder()
+.setName("avatar")
+.setDescription("Ver avatar")
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário")),
+
+new SlashCommandBuilder()
+.setName("abraçar")
+.setDescription("Abraçar usuário")
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
+
+new SlashCommandBuilder()
+.setName("beijar")
+.setDescription("Beijar usuário")
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
+
+new SlashCommandBuilder()
+.setName("cafune")
+.setDescription("Fazer cafuné")
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
+
+new SlashCommandBuilder()
+.setName("slap")
+.setDescription("Dar tapa")
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true))
 
 ].map(c=>c.toJSON())
 
-const rest = new REST({version:"10"}).setToken(TOKEN)
+const rest=new REST({version:"10"}).setToken(TOKEN)
 
-client.once("ready", async ()=>{
+client.once("ready",async()=>{
 
 console.log(`Bot online ${client.user.tag}`)
 
@@ -68,22 +97,100 @@ invites.set(guild.id,guildInvites)
 
 })
 
-/* HELP */
+/* INTERAÇÕES */
 
 client.on("interactionCreate",async interaction=>{
 
 if(!interaction.isChatInputCommand()) return
 
+/* HELP */
+
 if(interaction.commandName==="help"){
 
 const embed=new EmbedBuilder()
 
-.setTitle("🤖 Comandos do Bot")
+.setTitle("🤖 Comandos")
 
 .setDescription(`
-/ticket → abrir atendimento
-/modpainel → painel moderação
+/ticket
+/modpainel
+/enviarmensagem
+/limpar
+/avatar
+/abraçar
+/beijar
+/cafune
+/slap
 `)
+
+interaction.reply({embeds:[embed]})
+
+}
+
+/* ENVIAR MSG */
+
+if(interaction.commandName==="enviarmensagem"){
+
+const msg=interaction.options.getString("mensagem")
+
+await interaction.channel.send(msg)
+
+interaction.reply({content:"✅ Mensagem enviada",ephemeral:true})
+
+}
+
+/* LIMPAR */
+
+if(interaction.commandName==="limpar"){
+
+if(!interaction.member.roles.cache.has(STAFF_ROLE)){
+
+return interaction.reply({content:"❌ Sem permissão",ephemeral:true})
+
+}
+
+const q=interaction.options.getInteger("quantidade")
+
+await interaction.channel.bulkDelete(q)
+
+interaction.reply({content:`🧹 ${q} mensagens apagadas`,ephemeral:true})
+
+}
+
+/* AVATAR */
+
+if(interaction.commandName==="avatar"){
+
+const user=interaction.options.getUser("usuario") || interaction.user
+
+const embed=new EmbedBuilder()
+
+.setTitle(`Avatar de ${user.username}`)
+
+.setImage(user.displayAvatarURL({size:1024,dynamic:true}))
+
+interaction.reply({embeds:[embed]})
+
+}
+
+/* INTERAÇÃO GIF */
+
+const gifs={
+abraçar:"https://media.tenor.com/6e0QqY8v0O4AAAAC/anime-hug.gif",
+beijar:"https://media.tenor.com/5L8nT3GkH8YAAAAC/anime-kiss.gif",
+cafune:"https://media.tenor.com/5kYJ6p4pF5QAAAAC/anime-pat.gif",
+slap:"https://media.tenor.com/OjK2F2Kq9JQAAAAC/anime-slap.gif"
+}
+
+if(gifs[interaction.commandName]){
+
+const user=interaction.options.getUser("usuario")
+
+const embed=new EmbedBuilder()
+
+.setDescription(`${interaction.user} ${interaction.commandName} ${user}`)
+
+.setImage(gifs[interaction.commandName])
 
 interaction.reply({embeds:[embed]})
 
@@ -95,40 +202,19 @@ if(interaction.commandName==="modpainel"){
 
 if(!interaction.member.roles.cache.has(STAFF_ROLE)){
 
-return interaction.reply({
-content:"❌ Você não tem permissão",
-ephemeral:true
-})
+return interaction.reply({content:"❌ Sem permissão",ephemeral:true})
 
 }
 
 const embed=new EmbedBuilder()
 
-.setTitle("🛡️ Painel de Moderação")
+.setTitle("🛡️ Painel Moderação")
 
-.setDescription("Escolha uma ação")
+.setDescription("Escolha ação")
 
 const row=new ActionRowBuilder().addComponents(
 
-new ButtonBuilder()
-.setCustomId("ban")
-.setLabel("Ban")
-.setStyle(ButtonStyle.Danger),
-
-new ButtonBuilder()
-.setCustomId("kick")
-.setLabel("Kick")
-.setStyle(ButtonStyle.Secondary),
-
-new ButtonBuilder()
-.setCustomId("mute")
-.setLabel("Mute")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("limpar")
-.setLabel("Limpar")
-.setStyle(ButtonStyle.Success)
+new ButtonBuilder().setCustomId("limpar10").setLabel("Limpar 10").setStyle(ButtonStyle.Danger)
 
 )
 
@@ -152,7 +238,7 @@ new StringSelectMenuBuilder()
 
 .setCustomId("ticket_menu")
 
-.setPlaceholder("Escolha o tipo de ticket")
+.setPlaceholder("Escolha")
 
 .addOptions([
 {label:"⚒️ SUPORTE",value:"suporte"},
@@ -169,6 +255,30 @@ interaction.reply({embeds:[embed],components:[menu]})
 
 })
 
+/* BOTÕES */
+
+client.on("interactionCreate",async interaction=>{
+
+if(interaction.isButton()){
+
+if(interaction.customId==="limpar10"){
+
+await interaction.channel.bulkDelete(10)
+
+interaction.reply({content:"🧹 10 mensagens apagadas",ephemeral:true})
+
+}
+
+if(interaction.customId==="fechar_ticket"){
+
+interaction.channel.delete()
+
+}
+
+}
+
+})
+
 /* MENU TICKET */
 
 client.on("interactionCreate",async interaction=>{
@@ -177,9 +287,9 @@ if(!interaction.isStringSelectMenu()) return
 
 if(interaction.customId==="ticket_menu"){
 
-const user = interaction.user
+const user=interaction.user
 
-const channel = await interaction.guild.channels.create({
+const channel=await interaction.guild.channels.create({
 
 name:`ticket-${user.username}`,
 
@@ -197,108 +307,21 @@ permissionOverwrites:[
 
 })
 
-const embed=new EmbedBuilder()
-
-.setTitle("🎫 Ticket Aberto")
-
-.setDescription(`Suporte em breve para ${user}`)
-
 const buttons=new ActionRowBuilder().addComponents(
 
-new ButtonBuilder()
-.setCustomId("fechar_ticket")
-.setLabel("Fechar Ticket")
-.setStyle(ButtonStyle.Danger),
-
-new ButtonBuilder()
-.setCustomId("add_user")
-.setLabel("Adicionar Usuário")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("notificar")
-.setLabel("Notificar Usuário")
-.setStyle(ButtonStyle.Secondary)
+new ButtonBuilder().setCustomId("fechar_ticket").setLabel("Fechar Ticket").setStyle(ButtonStyle.Danger)
 
 )
 
-channel.send({embeds:[embed],components:[buttons]})
+channel.send({content:`🎫 Ticket aberto por ${user}`,components:[buttons]})
 
-interaction.reply({content:`✅ Ticket criado: ${channel}`,ephemeral:true})
+interaction.reply({content:`Ticket criado: ${channel}`,ephemeral:true})
 
 const log=interaction.guild.channels.cache.get(LOG_CHANNEL)
 
-if(log){
-
-log.send(`📩 Ticket aberto por ${user.tag}`)
+if(log) log.send(`Ticket aberto por ${user.tag}`)
 
 }
-
-}
-
-})
-
-/* BOTÕES TICKET */
-
-client.on("interactionCreate",async interaction=>{
-
-if(!interaction.isButton()) return
-
-if(interaction.customId==="fechar_ticket"){
-
-interaction.channel.delete()
-
-}
-
-if(interaction.customId==="add_user"){
-
-const menu = new ActionRowBuilder().addComponents(
-
-new UserSelectMenuBuilder()
-
-.setCustomId("select_user")
-
-.setPlaceholder("Escolha o usuário")
-
-)
-
-interaction.reply({components:[menu],ephemeral:true})
-
-}
-
-if(interaction.customId==="notificar"){
-
-const user = interaction.channel.permissionOverwrites.cache
-.find(p => p.type === 1 && p.allow.has("ViewChannel"))
-
-if(user){
-
-const target = await client.users.fetch(user.id)
-
-target.send("📩 Seu ticket recebeu resposta da equipe.")
-
-interaction.reply({content:"Usuário notificado!",ephemeral:true})
-
-}
-
-}
-
-})
-
-/* ADICIONAR USUÁRIO */
-
-client.on("interactionCreate",async interaction=>{
-
-if(!interaction.isUserSelectMenu()) return
-
-const user = interaction.values[0]
-
-await interaction.channel.permissionOverwrites.edit(user,{
-ViewChannel:true,
-SendMessages:true
-})
-
-interaction.reply({content:"Usuário adicionado ao ticket!",ephemeral:true})
 
 })
 
@@ -310,23 +333,6 @@ const channel=member.guild.channels.cache.get(WELCOME_CHANNEL)
 
 if(!channel) return
 
-const newInvites = await member.guild.invites.fetch()
-const oldInvites = invites.get(member.guild.id)
-
-const invite = newInvites.find(i => oldInvites.get(i.code)?.uses < i.uses)
-
-let inviter="Desconhecido"
-let total=0
-
-if(invite){
-
-inviter = `<@${invite.inviter.id}>`
-total = invite.uses
-
-}
-
-invites.set(member.guild.id,newInvites)
-
 const embed=new EmbedBuilder()
 
 .setTitle(`👋 Seja bem vindo ${member.user.username}`)
@@ -335,8 +341,5 @@ const embed=new EmbedBuilder()
 
 channel.send({embeds:[embed]})
 
-channel.send(`${member} você foi convidado por ${inviter} e agora ele tem **${total} invites**`)
-
 })
-
 client.login(TOKEN)
