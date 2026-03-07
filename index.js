@@ -31,8 +31,6 @@ GatewayIntentBits.MessageContent
 
 const invites = new Map()
 
-/* COMANDOS */
-
 const commands=[
 
 new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
@@ -61,8 +59,6 @@ invites.set(guild.id,guildInvites)
 
 })
 
-/* HELP */
-
 client.on("interactionCreate",async interaction=>{
 
 if(!interaction.isChatInputCommand()) return
@@ -71,7 +67,7 @@ if(interaction.commandName==="help"){
 
 const embed=new EmbedBuilder()
 
-.setTitle("🤖 Comandos do Bot")
+.setTitle("🤖 Comandos")
 
 .setDescription(`
 /ticket → abrir atendimento
@@ -82,14 +78,12 @@ interaction.reply({embeds:[embed]})
 
 }
 
-/* MODPAINEL */
-
 if(interaction.commandName==="modpainel"){
 
 if(!interaction.member.roles.cache.has(STAFF_ROLE)){
 
 return interaction.reply({
-content:"❌ Você não tem permissão",
+content:"❌ Sem permissão",
 ephemeral:true
 })
 
@@ -129,8 +123,6 @@ interaction.reply({embeds:[embed],components:[row]})
 
 }
 
-/* TICKET */
-
 if(interaction.commandName==="ticket"){
 
 const embed=new EmbedBuilder()
@@ -162,11 +154,9 @@ interaction.reply({embeds:[embed],components:[menu]})
 
 })
 
-/* BOTÕES MOD */
-
 client.on("interactionCreate",async interaction=>{
 
-if(!interaction.isButton()) return
+if(interaction.isButton()){
 
 if(!interaction.member.roles.cache.has(STAFF_ROLE)){
 
@@ -185,25 +175,49 @@ interaction.reply({content:"🧹 10 mensagens apagadas",ephemeral:true})
 
 }
 
+}
+
+if(interaction.isStringSelectMenu()){
+
+if(interaction.customId==="ticket_menu"){
+
+const user=interaction.user
+
+const channel=await interaction.guild.channels.create({
+
+name:`ticket-${user.username}`,
+
+type:ChannelType.GuildText,
+
+permissionOverwrites:[
+
+{ id:interaction.guild.id,deny:[PermissionsBitField.Flags.ViewChannel] },
+
+{ id:user.id,allow:[PermissionsBitField.Flags.ViewChannel,PermissionsBitField.Flags.SendMessages] },
+
+{ id:STAFF_ROLE,allow:[PermissionsBitField.Flags.ViewChannel,PermissionsBitField.Flags.SendMessages] }
+
+]
+
 })
 
-/* ANTI LINK */
+channel.send(`🎫 Ticket aberto por ${user}`)
 
-client.on("messageCreate",msg=>{
+interaction.reply({content:`✅ Ticket criado: ${channel}`,ephemeral:true})
 
-if(msg.author.bot) return
+const log=interaction.guild.channels.cache.get(LOG_CHANNEL)
 
-if(msg.content.includes("http") || msg.content.includes("discord.gg")){
+if(log){
 
-msg.delete()
+log.send(`📩 Ticket aberto por ${user.tag}`)
 
-msg.channel.send(`${msg.author} links não são permitidos.`)
+}
+
+}
 
 }
 
 })
-
-/* BOAS VINDAS */
 
 client.on("guildMemberAdd",async member=>{
 
