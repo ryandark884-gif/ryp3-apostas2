@@ -1,15 +1,24 @@
-const { 
-Client, 
-GatewayIntentBits, 
-ActionRowBuilder, 
-ButtonBuilder, 
-ButtonStyle, 
-StringSelectMenuBuilder, 
-ChannelType, 
-PermissionsBitField, 
-SlashCommandBuilder, 
-EmbedBuilder 
+const {
+Client,
+GatewayIntentBits,
+EmbedBuilder,
+ActionRowBuilder,
+StringSelectMenuBuilder,
+ButtonBuilder,
+ButtonStyle,
+PermissionsBitField,
+SlashCommandBuilder,
+REST,
+Routes,
+ChannelType
 } = require("discord.js")
+
+const TOKEN = process.env.TOKEN
+const CLIENT_ID = process.env.CLIENT_ID
+const GUILD_ID = process.env.GUILD_ID
+
+const STAFF_ROLE = "1463148647972737118"
+const LOG_CHANNEL = "1473752371128696885"
 
 const client = new Client({
 intents: [
@@ -20,90 +29,164 @@ GatewayIntentBits.GuildMembers
 ]
 })
 
-const STAFF_ROLE = "1463148647972737118"
-const LOG_CHANNEL = "1473752382541402162"
+/* ================= COMANDOS ================= */
+
+const commands = [
+
+new SlashCommandBuilder()
+.setName("ticket")
+.setDescription("Enviar painel de tickets"),
+
+new SlashCommandBuilder()
+.setName("enviarmensagem")
+.setDescription("Enviar uma mensagem pelo bot")
+.addStringOption(option =>
+option.setName("mensagem")
+.setDescription("Mensagem que o bot vai enviar")
+.setRequired(true)
+),
+
+new SlashCommandBuilder()
+.setName("limpar")
+.setDescription("Apagar mensagens")
+.addIntegerOption(option =>
+option.setName("quantidade")
+.setDescription("Quantidade de mensagens")
+.setRequired(true)
+)
+
+].map(cmd => cmd.toJSON())
+
+const rest = new REST({ version: "10" }).setToken(TOKEN)
+
+;(async () => {
+
+await rest.put(
+Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+{ body: commands }
+)
+
+console.log("✅ Comandos registrados")
+
+})()
+
+/* ================= BOT ONLINE ================= */
 
 client.once("ready", () => {
-console.log(`Bot online: ${client.user.tag}`)
+
+console.log(`🤖 Bot online como ${client.user.tag}`)
+
 })
+
+/* ================= COMANDOS ================= */
 
 client.on("interactionCreate", async interaction => {
 
-if(interaction.isChatInputCommand()){
+if (!interaction.isChatInputCommand()) return
 
-if(interaction.commandName === "ticket"){
+/* ===== PAINEL TICKET ===== */
+
+if (interaction.commandName === "ticket") {
 
 const embed = new EmbedBuilder()
-.setTitle("🎟️ Central de Atendimento")
-.setDescription("Selecione uma opção abaixo para abrir um ticket.")
+.setTitle("📩 Central de Atendimento")
+.setDescription(`Selecione abaixo o tipo de atendimento.`)
 .setColor("Blue")
 
-const menu = new StringSelectMenuBuilder()
-.setCustomId("ticket_menu")
-.setPlaceholder("Escolha uma opção")
+const menu = new ActionRowBuilder().addComponents(
+
+new StringSelectMenuBuilder()
+.setCustomId("menu_ticket")
+.setPlaceholder("Selecione uma opção")
 .addOptions([
-{
-label:"SUPORTE",
-description:"Abrir ticket de suporte",
-emoji:"⚒️",
-value:"suporte"
-},
-{
-label:"REEMBOLSO",
-description:"Solicitar reembolso",
-emoji:"💸",
-value:"reembolso"
-},
-{
-label:"VAGAS",
-description:"Solicitar vaga",
-emoji:"👤",
-value:"vagas"
-},
-{
-label:"RECEBER PREMIAÇÕES",
-description:"Receber premiação",
-emoji:"💰",
-value:"premio"
-}
+{ label:"⚒️ | SUPORTE", value:"suporte" },
+{ label:"💸 | REEMBOLSO", value:"reembolso" },
+{ label:"👤 | VAGAS", value:"vagas" },
+{ label:"💰 | RECEBER PREMIAÇÕES", value:"premio" }
 ])
 
-const row = new ActionRowBuilder().addComponents(menu)
+)
 
-interaction.reply({embeds:[embed],components:[row]})
+interaction.reply({ embeds:[embed], components:[menu] })
 
 }
 
-if(interaction.commandName === "enviarmensagem"){
+/* ===== ENVIAR MENSAGEM ===== */
+
+if (interaction.commandName === "enviarmensagem") {
+
+if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+
+return interaction.reply({
+content:"❌ Apenas administradores podem usar.",
+ephemeral:true
+})
+
+}
 
 const msg = interaction.options.getString("mensagem")
 
 await interaction.channel.send(msg)
 
-await interaction.reply({content:"✅ Mensagem enviada.",ephemeral:true})
+interaction.reply({
+content:"✅ Mensagem enviada.",
+ephemeral:true
+})
 
 }
 
-if(interaction.commandName === "limpar"){
+/* ===== LIMPAR CHAT ===== */
+
+if (interaction.commandName === "limpar") {
+
+if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+
+return interaction.reply({
+content:"❌ Você não pode usar isso.",
+ephemeral:true
+})
+
+}
 
 const quantidade = interaction.options.getInteger("quantidade")
 
 await interaction.channel.bulkDelete(quantidade)
 
-interaction.reply({content:`🧹 ${quantidade} mensagens apagadas.`,ephemeral:true})
+interaction.reply({
+content:`🧹 ${quantidade} mensagens apagadas.`,
+ephemeral:true
+})
 
 }
 
+})
+
+/* ================= MENU TICKET ================= */
+
+client.on("interactionCreate", async interaction => {
+
+if (!interaction.isStringSelectMenu()) return
+
+if (interaction.customId === "menu_ticket") {
+
+const user = interaction.user
+
+const ticketExistente = interaction.guild.channels.cache.find(
+c => c.topic === user.id
+)
+
+if (ticketExistente) {
+
+return interaction.reply({
+content:`❌ Você já possui um ticket aberto: ${ticketExistente}`,
+ephemeral:true
+})
+
 }
-
-if(interaction.isStringSelectMenu()){
-
-if(interaction.customId === "ticket_menu"){
-
-const escolha = interaction.values[0]
 
 const canal = await interaction.guild.channels.create({
-name:`ticket-${interaction.user.username}`,
+name:`ticket-${user.username}`,
+topic:user.id,
 type:ChannelType.GuildText,
 permissionOverwrites:[
 {
@@ -111,7 +194,7 @@ id:interaction.guild.id,
 deny:[PermissionsBitField.Flags.ViewChannel]
 },
 {
-id:interaction.user.id,
+id:user.id,
 allow:[
 PermissionsBitField.Flags.ViewChannel,
 PermissionsBitField.Flags.SendMessages
@@ -129,87 +212,103 @@ PermissionsBitField.Flags.SendMessages
 
 const embed = new EmbedBuilder()
 .setTitle("🎫 Ticket aberto")
-.setDescription(`Usuário: ${interaction.user}\nCategoria: **${escolha}**\n\nAguarde um administrador.`)
+.setDescription(`👤 Usuário: ${user}
+
+Aguarde um administrador.`)
 .setColor("Green")
 
-const fechar = new ButtonBuilder()
+const botoes = new ActionRowBuilder().addComponents(
+
+new ButtonBuilder()
 .setCustomId("fechar_ticket")
-.setLabel("FECHAR TICKET")
-.setEmoji("🚫")
-.setStyle(ButtonStyle.Danger)
+.setLabel("🚫 | FECHAR TICKET")
+.setStyle(ButtonStyle.Danger),
 
-const notificar = new ButtonBuilder()
+new ButtonBuilder()
 .setCustomId("notificar_user")
-.setLabel("NOTIFICAR USUÁRIO")
-.setEmoji("👤")
-.setStyle(ButtonStyle.Primary)
+.setLabel("👤 | NOTIFICAR USUÁRIO")
+.setStyle(ButtonStyle.Primary),
 
-const adicionar = new ButtonBuilder()
+new ButtonBuilder()
 .setCustomId("add_user")
-.setLabel("ADICIONAR USUÁRIO")
-.setEmoji("🚨")
+.setLabel("🚨 | ADICIONAR USUÁRIO")
 .setStyle(ButtonStyle.Secondary)
 
-const row = new ActionRowBuilder().addComponents(fechar,notificar,adicionar)
+)
 
-canal.send({embeds:[embed],components:[row]})
+canal.send({ embeds:[embed], components:[botoes] })
 
-interaction.reply({content:`✅ Ticket criado: ${canal}`,ephemeral:true})
+interaction.reply({
+content:`✅ Ticket criado: ${canal}`,
+ephemeral:true
+})
 
 const log = interaction.guild.channels.cache.get(LOG_CHANNEL)
 
-if(log){
-log.send(`📂 Ticket aberto por ${interaction.user}`)
+if (log) {
+log.send(`📂 Ticket aberto por ${user}`)
 }
 
 }
 
-}
+})
 
-if(interaction.isButton()){
+/* ================= BOTÕES ================= */
 
-if(!interaction.member.roles.cache.has(STAFF_ROLE)){
+client.on("interactionCreate", async interaction => {
+
+if (!interaction.isButton()) return
+
+if (!interaction.member.roles.cache.has(STAFF_ROLE)) {
 
 return interaction.reply({
-content:"❌ Apenas administradores podem usar estes botões.",
+content:"❌ Apenas STAFF pode usar estes botões.",
 ephemeral:true
 })
 
 }
 
-if(interaction.customId === "fechar_ticket"){
+/* FECHAR */
 
-interaction.channel.delete()
+if (interaction.customId === "fechar_ticket") {
 
 const log = interaction.guild.channels.cache.get(LOG_CHANNEL)
 
-if(log){
+if (log) {
 log.send(`🔒 Ticket fechado por ${interaction.user}`)
 }
 
-}
-
-if(interaction.customId === "notificar_user"){
-
-const nome = interaction.channel.name
-const userName = nome.replace("ticket-","")
-
-const membro = interaction.guild.members.cache.find(m => m.user.username === userName)
-
-if(!membro){
-return interaction.reply({content:"❌ Usuário não encontrado.",ephemeral:true})
-}
-
-membro.send(`📩 Você abriu um ticket no servidor **${interaction.guild.name}**.\nNossa equipe já irá atender você.`)
-
-interaction.reply({content:"📨 Usuário notificado.",ephemeral:true})
+interaction.channel.delete()
 
 }
 
-if(interaction.customId === "add_user"){
+/* NOTIFICAR */
+
+if (interaction.customId === "notificar_user") {
+
+const userId = interaction.channel.topic
+
+const membro = await interaction.guild.members.fetch(userId)
+
+try {
+
+await membro.send(
+`📩 Olá!
+
+Seu ticket no servidor **${interaction.guild.name}** recebeu uma atualização.
+
+Acesse o ticket para ver a resposta da equipe.`
+)
 
 interaction.reply({
-content:"Use o comando **/adduser** para adicionar alguém.",
+content:"✅ Usuário notificado no privado.",
+ephemeral:true
+})
+
+} catch {
+
+interaction.reply({
+content:"❌ Não consegui enviar mensagem privada.",
 ephemeral:true
 })
 
@@ -217,6 +316,17 @@ ephemeral:true
 
 }
 
+/* ADICIONAR USUÁRIO */
+
+if (interaction.customId === "add_user") {
+
+interaction.reply({
+content:"⚠️ Use o comando `/adicionar @usuario` para adicionar alguém ao ticket.",
+ephemeral:true
 })
 
-client.login(process.env.TOKEN)
+}
+
+})
+
+client.login(TOKEN)
