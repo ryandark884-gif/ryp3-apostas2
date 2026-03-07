@@ -30,8 +30,6 @@ GatewayIntentBits.MessageContent
 ]
 })
 
-const invites = new Map()
-
 /* COMANDOS */
 
 const commands=[
@@ -39,8 +37,6 @@ const commands=[
 new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
 
 new SlashCommandBuilder().setName("ticket").setDescription("Abrir ticket"),
-
-new SlashCommandBuilder().setName("modpainel").setDescription("Painel moderação"),
 
 new SlashCommandBuilder()
 .setName("enviarmensagem")
@@ -75,7 +71,11 @@ new SlashCommandBuilder()
 new SlashCommandBuilder()
 .setName("slap")
 .setDescription("Dar tapa")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true))
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
+
+new SlashCommandBuilder()
+.setName("modpainel")
+.setDescription("Painel moderação")
 
 ].map(c=>c.toJSON())
 
@@ -90,14 +90,9 @@ Routes.applicationCommands(CLIENT_ID),
 {body:commands}
 )
 
-client.guilds.cache.forEach(async guild=>{
-const guildInvites = await guild.invites.fetch()
-invites.set(guild.id,guildInvites)
 })
 
-})
-
-/* INTERAÇÕES */
+/* COMANDOS */
 
 client.on("interactionCreate",async interaction=>{
 
@@ -113,7 +108,6 @@ const embed=new EmbedBuilder()
 
 .setDescription(`
 /ticket
-/modpainel
 /enviarmensagem
 /limpar
 /avatar
@@ -121,6 +115,7 @@ const embed=new EmbedBuilder()
 /beijar
 /cafune
 /slap
+/modpainel
 `)
 
 interaction.reply({embeds:[embed]})
@@ -135,7 +130,7 @@ const msg=interaction.options.getString("mensagem")
 
 await interaction.channel.send(msg)
 
-interaction.reply({content:"✅ Mensagem enviada",ephemeral:true})
+interaction.reply({content:"Mensagem enviada!",ephemeral:true})
 
 }
 
@@ -143,17 +138,11 @@ interaction.reply({content:"✅ Mensagem enviada",ephemeral:true})
 
 if(interaction.commandName==="limpar"){
 
-if(!interaction.member.roles.cache.has(STAFF_ROLE)){
-
-return interaction.reply({content:"❌ Sem permissão",ephemeral:true})
-
-}
-
 const q=interaction.options.getInteger("quantidade")
 
 await interaction.channel.bulkDelete(q)
 
-interaction.reply({content:`🧹 ${q} mensagens apagadas`,ephemeral:true})
+interaction.reply({content:`${q} mensagens apagadas`,ephemeral:true})
 
 }
 
@@ -173,7 +162,7 @@ interaction.reply({embeds:[embed]})
 
 }
 
-/* INTERAÇÃO GIF */
+/* INTERAÇÕES */
 
 const gifs={
 abraçar:"https://media.tenor.com/6e0QqY8v0O4AAAAC/anime-hug.gif",
@@ -200,21 +189,16 @@ interaction.reply({embeds:[embed]})
 
 if(interaction.commandName==="modpainel"){
 
-if(!interaction.member.roles.cache.has(STAFF_ROLE)){
-
-return interaction.reply({content:"❌ Sem permissão",ephemeral:true})
-
-}
-
 const embed=new EmbedBuilder()
 
 .setTitle("🛡️ Painel Moderação")
 
-.setDescription("Escolha ação")
-
 const row=new ActionRowBuilder().addComponents(
 
-new ButtonBuilder().setCustomId("limpar10").setLabel("Limpar 10").setStyle(ButtonStyle.Danger)
+new ButtonBuilder()
+.setCustomId("limpar10")
+.setLabel("🧹 Limpar 10")
+.setStyle(ButtonStyle.Danger)
 
 )
 
@@ -255,31 +239,7 @@ interaction.reply({embeds:[embed],components:[menu]})
 
 })
 
-/* BOTÕES */
-
-client.on("interactionCreate",async interaction=>{
-
-if(interaction.isButton()){
-
-if(interaction.customId==="limpar10"){
-
-await interaction.channel.bulkDelete(10)
-
-interaction.reply({content:"🧹 10 mensagens apagadas",ephemeral:true})
-
-}
-
-if(interaction.customId==="fechar_ticket"){
-
-interaction.channel.delete()
-
-}
-
-}
-
-})
-
-/* MENU TICKET */
+/* CRIAR TICKET */
 
 client.on("interactionCreate",async interaction=>{
 
@@ -307,21 +267,97 @@ permissionOverwrites:[
 
 })
 
+const embed=new EmbedBuilder()
+
+.setTitle("🎫 Ticket aberto")
+
+.setDescription(`Aguarde atendimento ${user}`)
+
 const buttons=new ActionRowBuilder().addComponents(
 
-new ButtonBuilder().setCustomId("fechar_ticket").setLabel("Fechar Ticket").setStyle(ButtonStyle.Danger)
+new ButtonBuilder().setCustomId("assumir").setLabel("🛠 Assumir Ticket").setStyle(ButtonStyle.Success),
+
+new ButtonBuilder().setCustomId("add_user").setLabel("👤 Adicionar Usuário").setStyle(ButtonStyle.Primary),
+
+new ButtonBuilder().setCustomId("notify").setLabel("📢 Notificar Usuário").setStyle(ButtonStyle.Secondary),
+
+new ButtonBuilder().setCustomId("fechar").setLabel("🚫 Fechar Ticket").setStyle(ButtonStyle.Danger)
 
 )
 
-channel.send({content:`🎫 Ticket aberto por ${user}`,components:[buttons]})
+channel.send({embeds:[embed],components:[buttons]})
 
 interaction.reply({content:`Ticket criado: ${channel}`,ephemeral:true})
 
-const log=interaction.guild.channels.cache.get(LOG_CHANNEL)
+}
 
-if(log) log.send(`Ticket aberto por ${user.tag}`)
+})
+
+/* BOTÕES */
+
+client.on("interactionCreate",async interaction=>{
+
+if(!interaction.isButton()) return
+
+if(interaction.customId==="assumir"){
+
+interaction.channel.send(`🛠 Ticket assumido por ${interaction.user}`)
 
 }
+
+if(interaction.customId==="fechar"){
+
+interaction.channel.delete()
+
+}
+
+if(interaction.customId==="notify"){
+
+const user = interaction.channel.permissionOverwrites.cache
+.find(p=>p.type===1)
+
+if(user){
+
+const target = await client.users.fetch(user.id)
+
+target.send("📩 Seu ticket recebeu resposta da equipe.")
+
+interaction.reply({content:"Usuário notificado!",ephemeral:true})
+
+}
+
+}
+
+if(interaction.customId==="add_user"){
+
+const menu=new ActionRowBuilder().addComponents(
+
+new UserSelectMenuBuilder()
+.setCustomId("select_user")
+.setPlaceholder("Escolha usuário")
+
+)
+
+interaction.reply({components:[menu],ephemeral:true})
+
+}
+
+})
+
+/* ADICIONAR USUÁRIO */
+
+client.on("interactionCreate",async interaction=>{
+
+if(!interaction.isUserSelectMenu()) return
+
+const user=interaction.values[0]
+
+await interaction.channel.permissionOverwrites.edit(user,{
+ViewChannel:true,
+SendMessages:true
+})
+
+interaction.reply({content:"Usuário adicionado!",ephemeral:true})
 
 })
 
@@ -342,4 +378,5 @@ const embed=new EmbedBuilder()
 channel.send({embeds:[embed]})
 
 })
+
 client.login(TOKEN)
