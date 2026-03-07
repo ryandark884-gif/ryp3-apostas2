@@ -54,28 +54,13 @@ new SlashCommandBuilder()
 .addUserOption(o=>o.setName("usuario").setDescription("Usuário")),
 
 new SlashCommandBuilder()
-.setName("abraçar")
-.setDescription("Abraçar usuário")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
-
-new SlashCommandBuilder()
-.setName("beijar")
-.setDescription("Beijar usuário")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
-
-new SlashCommandBuilder()
 .setName("cafune")
 .setDescription("Fazer cafuné")
 .addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
 
 new SlashCommandBuilder()
-.setName("slap")
-.setDescription("Dar tapa")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
-
-new SlashCommandBuilder()
 .setName("modpainel")
-.setDescription("Painel moderação")
+.setDescription("Painel de moderação")
 
 ].map(c=>c.toJSON())
 
@@ -111,10 +96,7 @@ const embed=new EmbedBuilder()
 /enviarmensagem
 /limpar
 /avatar
-/abraçar
-/beijar
 /cafune
-/slap
 /modpainel
 `)
 
@@ -162,24 +144,17 @@ interaction.reply({embeds:[embed]})
 
 }
 
-/* INTERAÇÕES */
+/* CAFUNÉ */
 
-const gifs={
-abraçar:"https://media.tenor.com/6e0QqY8v0O4AAAAC/anime-hug.gif",
-beijar:"https://media.tenor.com/5L8nT3GkH8YAAAAC/anime-kiss.gif",
-cafune:"https://media.tenor.com/5kYJ6p4pF5QAAAAC/anime-pat.gif",
-slap:"https://media.tenor.com/OjK2F2Kq9JQAAAAC/anime-slap.gif"
-}
-
-if(gifs[interaction.commandName]){
+if(interaction.commandName==="cafune"){
 
 const user=interaction.options.getUser("usuario")
 
 const embed=new EmbedBuilder()
 
-.setDescription(`${interaction.user} ${interaction.commandName} ${user}`)
+.setDescription(`${interaction.user} fez cafuné em ${user}`)
 
-.setImage(gifs[interaction.commandName])
+.setImage("https://media.tenor.com/5kYJ6p4pF5QAAAAC/anime-pat.gif")
 
 interaction.reply({embeds:[embed]})
 
@@ -189,16 +164,39 @@ interaction.reply({embeds:[embed]})
 
 if(interaction.commandName==="modpainel"){
 
+if(!interaction.member.roles.cache.has(STAFF_ROLE)){
+
+return interaction.reply({content:"❌ Sem permissão",ephemeral:true})
+
+}
+
 const embed=new EmbedBuilder()
 
-.setTitle("🛡️ Painel Moderação")
+.setTitle("🛡️ Painel de Moderação")
+
+.setDescription("Escolha uma ação")
 
 const row=new ActionRowBuilder().addComponents(
 
 new ButtonBuilder()
+.setCustomId("ban_user")
+.setLabel("🔨 Ban")
+.setStyle(ButtonStyle.Danger),
+
+new ButtonBuilder()
+.setCustomId("mute_user")
+.setLabel("🔇 Mute")
+.setStyle(ButtonStyle.Primary),
+
+new ButtonBuilder()
+.setCustomId("unmute_user")
+.setLabel("🔊 Unmute")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
 .setCustomId("limpar10")
 .setLabel("🧹 Limpar 10")
-.setStyle(ButtonStyle.Danger)
+.setStyle(ButtonStyle.Secondary)
 
 )
 
@@ -206,158 +204,21 @@ interaction.reply({embeds:[embed],components:[row]})
 
 }
 
-/* TICKET */
-
-if(interaction.commandName==="ticket"){
-
-const embed=new EmbedBuilder()
-
-.setTitle("📩 Central de Atendimento")
-
-.setImage("https://i.supaimg.com/4094cff7-47c8-488d-8754-3d34606a8df4/8cabf436-ce4a-497a-9f69-975fbdd829ab.png")
-
-const menu=new ActionRowBuilder().addComponents(
-
-new StringSelectMenuBuilder()
-
-.setCustomId("ticket_menu")
-
-.setPlaceholder("Escolha")
-
-.addOptions([
-{label:"⚒️ SUPORTE",value:"suporte"},
-{label:"💸 REEMBOLSO",value:"reembolso"},
-{label:"👤 VAGAS",value:"vagas"},
-{label:"💰 PREMIAÇÕES",value:"premio"}
-])
-
-)
-
-interaction.reply({embeds:[embed],components:[menu]})
-
-}
-
 })
 
-/* CRIAR TICKET */
-
-client.on("interactionCreate",async interaction=>{
-
-if(!interaction.isStringSelectMenu()) return
-
-if(interaction.customId==="ticket_menu"){
-
-const user=interaction.user
-
-const channel=await interaction.guild.channels.create({
-
-name:`ticket-${user.username}`,
-
-type:ChannelType.GuildText,
-
-permissionOverwrites:[
-
-{ id:interaction.guild.id,deny:[PermissionsBitField.Flags.ViewChannel] },
-
-{ id:user.id,allow:[PermissionsBitField.Flags.ViewChannel,PermissionsBitField.Flags.SendMessages] },
-
-{ id:STAFF_ROLE,allow:[PermissionsBitField.Flags.ViewChannel,PermissionsBitField.Flags.SendMessages] }
-
-]
-
-})
-
-const embed=new EmbedBuilder()
-
-.setTitle("🎫 Ticket aberto")
-
-.setDescription(`Aguarde atendimento ${user}`)
-
-const buttons=new ActionRowBuilder().addComponents(
-
-new ButtonBuilder().setCustomId("assumir").setLabel("🛠 Assumir Ticket").setStyle(ButtonStyle.Success),
-
-new ButtonBuilder().setCustomId("add_user").setLabel("👤 Adicionar Usuário").setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder().setCustomId("notify").setLabel("📢 Notificar Usuário").setStyle(ButtonStyle.Secondary),
-
-new ButtonBuilder().setCustomId("fechar").setLabel("🚫 Fechar Ticket").setStyle(ButtonStyle.Danger)
-
-)
-
-channel.send({embeds:[embed],components:[buttons]})
-
-interaction.reply({content:`Ticket criado: ${channel}`,ephemeral:true})
-
-}
-
-})
-
-/* BOTÕES */
+/* BOTÕES MOD */
 
 client.on("interactionCreate",async interaction=>{
 
 if(!interaction.isButton()) return
 
-if(interaction.customId==="assumir"){
+if(interaction.customId==="limpar10"){
 
-interaction.channel.send(`🛠 Ticket assumido por ${interaction.user}`)
+await interaction.channel.bulkDelete(10)
 
-}
-
-if(interaction.customId==="fechar"){
-
-interaction.channel.delete()
+interaction.reply({content:"🧹 10 mensagens apagadas",ephemeral:true})
 
 }
-
-if(interaction.customId==="notify"){
-
-const user = interaction.channel.permissionOverwrites.cache
-.find(p=>p.type===1)
-
-if(user){
-
-const target = await client.users.fetch(user.id)
-
-target.send("📩 Seu ticket recebeu resposta da equipe.")
-
-interaction.reply({content:"Usuário notificado!",ephemeral:true})
-
-}
-
-}
-
-if(interaction.customId==="add_user"){
-
-const menu=new ActionRowBuilder().addComponents(
-
-new UserSelectMenuBuilder()
-.setCustomId("select_user")
-.setPlaceholder("Escolha usuário")
-
-)
-
-interaction.reply({components:[menu],ephemeral:true})
-
-}
-
-})
-
-/* ADICIONAR USUÁRIO */
-
-client.on("interactionCreate",async interaction=>{
-
-if(!interaction.isUserSelectMenu()) return
-
-const user=interaction.values[0]
-
-await interaction.channel.permissionOverwrites.edit(user,{
-ViewChannel:true,
-SendMessages:true
-})
-
-interaction.reply({content:"Usuário adicionado!",ephemeral:true})
 
 })
 
