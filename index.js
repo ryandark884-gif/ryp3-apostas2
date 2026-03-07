@@ -21,7 +21,7 @@ GatewayIntentBits.GuildMembers
 })
 
 const STAFF_ROLE = "1463148647972737118"
-const LOG_CHANNEL = "1473752371128696885"
+const LOG_CHANNEL = "1473752382541402162"
 
 client.once("ready", () => {
 console.log(`Bot online: ${client.user.tag}`)
