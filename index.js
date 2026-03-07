@@ -219,4 +219,4 @@ ephemeral:true
 
 })
 
-client.login("SEU_TOKEN_AQUI")
+client.login(process.env.TOKEN)
