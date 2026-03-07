@@ -1,243 +1,292 @@
 const {
-Client,
-GatewayIntentBits,
-EmbedBuilder,
-ActionRowBuilder,
-ButtonBuilder,
-ButtonStyle,
-StringSelectMenuBuilder,
-UserSelectMenuBuilder,
-PermissionsBitField,
-SlashCommandBuilder,
-REST,
-Routes,
-ChannelType
-} = require("discord.js")
+  Client,
+  GatewayIntentBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  UserSelectMenuBuilder,
+  PermissionsBitField,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+  ChannelType
+} = require("discord.js");
 
-const TOKEN = process.env.TOKEN
-const CLIENT_ID = process.env.CLIENT_ID
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID; // ID do servidor de teste
 
-const STAFF_ROLE = "1463198259186106429"
-const LOG_CHANNEL = "1473752382541402162"
-const WELCOME_CHANNEL = "1473752318800433313"
+const STAFF_ROLE = "1463198259186106429"; // cargo que pode acessar mod painel
+const LOG_CHANNEL = "1473752382541402162";
+const WELCOME_CHANNEL = "1473752318800433313";
+const MUTE_ROLE = "COLOQUE_AQUI_ID_DO_CARGO_DE_MUTE";
 
 const client = new Client({
-intents:[
-GatewayIntentBits.Guilds,
-GatewayIntentBits.GuildMembers,
-GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent
-]
-})
+  intents:[
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
 /* COMANDOS */
+const commands = [
+  new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
+  new SlashCommandBuilder().setName("ticket").setDescription("Abrir ticket"),
+  new SlashCommandBuilder()
+    .setName("enviarmensagem")
+    .setDescription("Enviar mensagem")
+    .addStringOption(o => o.setName("mensagem").setDescription("Mensagem").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("limpar")
+    .setDescription("Limpar mensagens")
+    .addIntegerOption(o => o.setName("quantidade").setDescription("Quantidade").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("avatar")
+    .setDescription("Ver avatar")
+    .addUserOption(o => o.setName("usuario").setDescription("Usuário")),
+  new SlashCommandBuilder()
+    .setName("cafune")
+    .setDescription("Fazer cafuné")
+    .addUserOption(o => o.setName("usuario").setDescription("Usuário").setRequired(true)),
+  new SlashCommandBuilder()
+    .setName("modpainel")
+    .setDescription("Painel de moderação")
+].map(c => c.toJSON());
 
-const commands=[
+/* REGISTRAR COMANDOS */
+const rest = new REST({ version:"10" }).setToken(TOKEN);
+client.once("ready", async () => {
+  console.log(`✅ Bot online como ${client.user.tag}`);
+  try {
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands }
+    );
+    console.log("✅ Comandos registrados no servidor");
+  } catch (err) {
+    console.error(err);
+  }
+});
 
-new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
+/* INTERAÇÕES DOS COMANDOS */
+client.on("interactionCreate", async interaction => {
 
-new SlashCommandBuilder().setName("ticket").setDescription("Abrir ticket"),
-
-new SlashCommandBuilder()
-.setName("enviarmensagem")
-.setDescription("Enviar mensagem")
-.addStringOption(o=>o.setName("mensagem").setDescription("Mensagem").setRequired(true)),
-
-new SlashCommandBuilder()
-.setName("limpar")
-.setDescription("Limpar mensagens")
-.addIntegerOption(o=>o.setName("quantidade").setDescription("Quantidade").setRequired(true)),
-
-new SlashCommandBuilder()
-.setName("avatar")
-.setDescription("Ver avatar")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário")),
-
-new SlashCommandBuilder()
-.setName("cafune")
-.setDescription("Fazer cafuné")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário").setRequired(true)),
-
-new SlashCommandBuilder()
-.setName("modpainel")
-.setDescription("Painel de moderação")
-
-].map(c=>c.toJSON())
-
-const rest=new REST({version:"10"}).setToken(TOKEN)
-
-client.once("ready",async()=>{
-
-console.log(`Bot online ${client.user.tag}`)
-
-await rest.put(
-Routes.applicationCommands(CLIENT_ID),
-{body:commands}
-)
-
-})
-
-/* COMANDOS */
-
-client.on("interactionCreate",async interaction=>{
-
-if(!interaction.isChatInputCommand()) return
-
-/* HELP */
-
-if(interaction.commandName==="help"){
-
-const embed=new EmbedBuilder()
-
-.setTitle("🤖 Comandos")
-
-.setDescription(`
+  if(interaction.isChatInputCommand()){
+    /* HELP */
+    if(interaction.commandName === "help"){
+      const embed = new EmbedBuilder()
+        .setTitle("🤖 Comandos")
+        .setDescription(`
 /ticket
 /enviarmensagem
 /limpar
 /avatar
 /cafune
 /modpainel
-`)
+        `);
+      interaction.reply({ embeds:[embed] });
+    }
 
-interaction.reply({embeds:[embed]})
+    /* ENVIAR MENSAGEM */
+    if(interaction.commandName === "enviarmensagem"){
+      const msg = interaction.options.getString("mensagem");
+      await interaction.channel.send(msg);
+      interaction.reply({ content:"✅ Mensagem enviada!", ephemeral:true });
+    }
 
-}
+    /* LIMPAR */
+    if(interaction.commandName === "limpar"){
+      const q = interaction.options.getInteger("quantidade");
+      await interaction.channel.bulkDelete(q);
+      interaction.reply({ content:`🧹 ${q} mensagens apagadas`, ephemeral:true });
+    }
 
-/* ENVIAR MSG */
+    /* AVATAR */
+    if(interaction.commandName === "avatar"){
+      const user = interaction.options.getUser("usuario") || interaction.user;
+      const embed = new EmbedBuilder()
+        .setTitle(`Avatar de ${user.username}`)
+        .setImage(user.displayAvatarURL({ size:1024, dynamic:true }));
+      interaction.reply({ embeds:[embed] });
+    }
 
-if(interaction.commandName==="enviarmensagem"){
+    /* CAFUNÉ */
+    if(interaction.commandName === "cafune"){
+      const user = interaction.options.getUser("usuario");
+      const embed = new EmbedBuilder()
+        .setDescription(`${interaction.user} fez cafuné em ${user}`)
+        .setImage("https://media.tenor.com/5kYJ6p4pF5QAAAAC/anime-pat.gif");
+      interaction.reply({ embeds:[embed] });
+    }
 
-const msg=interaction.options.getString("mensagem")
+    /* MODPAINEL */
+    if(interaction.commandName === "modpainel"){
+      if(!interaction.member.roles.cache.has(STAFF_ROLE))
+        return interaction.reply({ content:"❌ Sem permissão", ephemeral:true });
 
-await interaction.channel.send(msg)
+      const embed = new EmbedBuilder()
+        .setTitle("🛡️ Painel de Moderação")
+        .setDescription("Escolha uma ação");
 
-interaction.reply({content:"Mensagem enviada!",ephemeral:true})
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("ban_user").setLabel("🔨 Ban").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("mute_user").setLabel("🔇 Mute").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("unmute_user").setLabel("🔊 Unmute").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("limpar10").setLabel("🧹 Limpar 10").setStyle(ButtonStyle.Secondary)
+      );
 
-}
+      interaction.reply({ embeds:[embed], components:[row] });
+    }
 
-/* LIMPAR */
+    /* TICKET */
+    if(interaction.commandName === "ticket"){
+      const embed = new EmbedBuilder()
+        .setTitle("📩 Central de Atendimento")
+        .setImage("https://i.supaimg.com/4094cff7-47c8-488d-8754-3d34606a8df4/8cabf436-ce4a-497a-9f69-975fbdd829ab.png");
 
-if(interaction.commandName==="limpar"){
+      const menu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("ticket_menu")
+          .setPlaceholder("Escolha")
+          .addOptions([
+            { label:"⚒️ SUPORTE", value:"suporte" },
+            { label:"💸 REEMBOLSO", value:"reembolso" },
+            { label:"👤 VAGAS", value:"vagas" },
+            { label:"💰 PREMIAÇÕES", value:"premio" }
+          ])
+      );
 
-const q=interaction.options.getInteger("quantidade")
+      interaction.reply({ embeds:[embed], components:[menu] });
+    }
+  }
 
-await interaction.channel.bulkDelete(q)
+  /* MENU DE TICKET */
+  if(interaction.isStringSelectMenu()){
+    if(interaction.customId === "ticket_menu"){
+      const user = interaction.user;
+      const channel = await interaction.guild.channels.create({
+        name:`ticket-${user.username}`,
+        type: ChannelType.GuildText,
+        permissionOverwrites:[
+          { id: interaction.guild.id, deny:[PermissionsBitField.Flags.ViewChannel] },
+          { id: user.id, allow:[PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+          { id: STAFF_ROLE, allow:[PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+        ]
+      });
 
-interaction.reply({content:`${q} mensagens apagadas`,ephemeral:true})
+      const embed = new EmbedBuilder()
+        .setTitle("🎫 Ticket aberto")
+        .setDescription(`Aguarde atendimento ${user}`);
 
-}
+      const buttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("assumir").setLabel("🛠 Assumir Ticket").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("add_user").setLabel("👤 Adicionar Usuário").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("notify").setLabel("📢 Notificar Usuário").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("fechar").setLabel("🚫 Fechar Ticket").setStyle(ButtonStyle.Danger)
+      );
 
-/* AVATAR */
+      channel.send({ embeds:[embed], components:[buttons] });
+      interaction.reply({ content:`✅ Ticket criado: ${channel}`, ephemeral:true });
+    }
+  }
 
-if(interaction.commandName==="avatar"){
+  /* BOTÕES */
+  if(interaction.isButton()){
+    /* MODPAINEL */
+    if(interaction.customId === "limpar10"){
+      await interaction.channel.bulkDelete(10);
+      interaction.reply({ content:"🧹 10 mensagens apagadas", ephemeral:true });
+    }
 
-const user=interaction.options.getUser("usuario") || interaction.user
+    if(interaction.customId === "ban_user"){
+      const menu = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId("select_ban")
+          .setPlaceholder("Selecione usuário")
+      );
+      interaction.reply({ components:[menu], ephemeral:true });
+    }
 
-const embed=new EmbedBuilder()
+    if(interaction.customId === "mute_user"){
+      const menu = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId("select_mute")
+          .setPlaceholder("Selecione usuário")
+      );
+      interaction.reply({ components:[menu], ephemeral:true });
+    }
 
-.setTitle(`Avatar de ${user.username}`)
+    if(interaction.customId === "unmute_user"){
+      const menu = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId("select_unmute")
+          .setPlaceholder("Selecione usuário")
+      );
+      interaction.reply({ components:[menu], ephemeral:true });
+    }
 
-.setImage(user.displayAvatarURL({size:1024,dynamic:true}))
+    /* TICKET BOTÕES */
+    if(interaction.customId === "assumir") interaction.channel.send(`🛠 Ticket assumido por ${interaction.user}`);
+    if(interaction.customId === "fechar") interaction.channel.delete();
+    if(interaction.customId === "notify"){
+      const userPerm = interaction.channel.permissionOverwrites.cache.find(p => p.type===1);
+      if(userPerm){
+        const target = await client.users.fetch(userPerm.id);
+        target.send("📩 Seu ticket recebeu resposta da equipe.");
+        interaction.reply({ content:"✅ Usuário notificado!", ephemeral:true });
+      }
+    }
+    if(interaction.customId === "add_user"){
+      const menu = new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder().setCustomId("select_user").setPlaceholder("Escolha usuário")
+      );
+      interaction.reply({ components:[menu], ephemeral:true });
+    }
+  }
 
-interaction.reply({embeds:[embed]})
-
-}
-
-/* CAFUNÉ */
-
-if(interaction.commandName==="cafune"){
-
-const user=interaction.options.getUser("usuario")
-
-const embed=new EmbedBuilder()
-
-.setDescription(`${interaction.user} fez cafuné em ${user}`)
-
-.setImage("https://media.tenor.com/5kYJ6p4pF5QAAAAC/anime-pat.gif")
-
-interaction.reply({embeds:[embed]})
-
-}
-
-/* MODPAINEL */
-
-if(interaction.commandName==="modpainel"){
-
-if(!interaction.member.roles.cache.has(STAFF_ROLE)){
-
-return interaction.reply({content:"❌ Sem permissão",ephemeral:true})
-
-}
-
-const embed=new EmbedBuilder()
-
-.setTitle("🛡️ Painel de Moderação")
-
-.setDescription("Escolha uma ação")
-
-const row=new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("ban_user")
-.setLabel("🔨 Ban")
-.setStyle(ButtonStyle.Danger),
-
-new ButtonBuilder()
-.setCustomId("mute_user")
-.setLabel("🔇 Mute")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("unmute_user")
-.setLabel("🔊 Unmute")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("limpar10")
-.setLabel("🧹 Limpar 10")
-.setStyle(ButtonStyle.Secondary)
-
-)
-
-interaction.reply({embeds:[embed],components:[row]})
-
-}
-
-})
-
-/* BOTÕES MOD */
-
-client.on("interactionCreate",async interaction=>{
-
-if(!interaction.isButton()) return
-
-if(interaction.customId==="limpar10"){
-
-await interaction.channel.bulkDelete(10)
-
-interaction.reply({content:"🧹 10 mensagens apagadas",ephemeral:true})
-
-}
-
-})
+  /* USER SELECT MENUS */
+  if(interaction.isUserSelectMenu()){
+    if(interaction.customId === "select_ban"){
+      const userId = interaction.values[0];
+      const member = await interaction.guild.members.fetch(userId);
+      await member.ban({ reason:"Banido pelo painel" });
+      interaction.reply({ content:`🔨 ${member.user.tag} foi banido!`, ephemeral:true });
+    }
+    if(interaction.customId === "select_mute"){
+      const userId = interaction.values[0];
+      const member = await interaction.guild.members.fetch(userId);
+      await member.roles.add(MUTE_ROLE);
+      interaction.reply({ content:`🔇 ${member.user.tag} foi mutado!`, ephemeral:true });
+    }
+    if(interaction.customId === "select_unmute"){
+      const userId = interaction.values[0];
+      const member = await interaction.guild.members.fetch(userId);
+      await member.roles.remove(MUTE_ROLE);
+      interaction.reply({ content:`🔊 ${member.user.tag} foi desmutado!`, ephemeral:true });
+    }
+    if(interaction.customId === "select_user"){
+      const userId = interaction.values[0];
+      await interaction.channel.permissionOverwrites.edit(userId,{
+        ViewChannel:true,
+        SendMessages:true
+      });
+      interaction.reply({ content:"✅ Usuário adicionado!", ephemeral:true });
+    }
+  }
+});
 
 /* BOAS VINDAS */
+client.on("guildMemberAdd", async member => {
+  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL);
+  if(!channel) return;
+  const embed = new EmbedBuilder()
+    .setTitle(`👋 Seja bem vindo ${member.user.username}`)
+    .setImage(member.user.displayAvatarURL({ size:1024, dynamic:true }));
+  channel.send({ embeds:[embed] });
+});
 
-client.on("guildMemberAdd",async member=>{
-
-const channel=member.guild.channels.cache.get(WELCOME_CHANNEL)
-
-if(!channel) return
-
-const embed=new EmbedBuilder()
-
-.setTitle(`👋 Seja bem vindo ${member.user.username}`)
-
-.setImage(member.user.displayAvatarURL({size:1024,dynamic:true}))
-
-channel.send({embeds:[embed]})
-
-})
-
-client.login(TOKEN)
+client.login(TOKEN);
