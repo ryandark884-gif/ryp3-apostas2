@@ -95,6 +95,8 @@ o.setName("usuario")
 
 const rest=new REST({version:"10"}).setToken(TOKEN)
 
+/* REGISTRAR COMANDOS */
+
 ;(async()=>{
 
 await rest.put(
@@ -135,7 +137,7 @@ const embed=new EmbedBuilder()
 
 .setColor("Blue")
 
-.setImage("https://i.imgur.com/3ZUrjUP.png")
+.setImage("https://i.supaimg.com/4094cff7-47c8-488d-8754-3d34606a8df4/8cabf436-ce4a-497a-9f69-975fbdd829ab.png")
 
 const menu=new ActionRowBuilder().addComponents(
 
