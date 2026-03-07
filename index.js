@@ -219,4 +219,4 @@ ephemeral:true
 
 })
 
-client.login("MTQ3ODIyODI3MTQwMDQ4ODk5MA.GkYFsl.ct0RLya3lHIoISTfDh3YhGGJb1SqwktSxqs5NE")
+client.login("SEU_TOKEN_AQUI")
