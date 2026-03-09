@@ -1,6 +1,7 @@
 {
-  "name": "discord-bot",
+  "name": "ryan-bot-discord",
   "version": "1.0.0",
+  "description": "Bot Discord do Ryan",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
