@@ -50,12 +50,12 @@ new SlashCommandBuilder()
 new SlashCommandBuilder()
 .setName("avatar")
 .setDescription("Ver avatar")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário"))
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário")),
 
 new SlashCommandBuilder()
 .setName("userinfo")
 .setDescription("Informações do usuário")
-.addUserOption(o=>o.setName("usuario").setDescription("Usuário"))
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário")),
 
 new SlashCommandBuilder()
 .setName("serverinfo")
@@ -65,7 +65,7 @@ new SlashCommandBuilder()
 .setName("embed")
 .setDescription("Criar embed")
 .addStringOption(o=>o.setName("titulo").setRequired(true))
-.addStringOption(o=>o.setName("descricao").setRequired(true))
+.addStringOption(o=>o.setName("descricao").setRequired(true)),
 
 ].map(c=>c.toJSON())
 
