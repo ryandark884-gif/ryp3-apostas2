@@ -50,12 +50,12 @@ new SlashCommandBuilder()
 new SlashCommandBuilder()
 .setName("avatar")
 .setDescription("Ver avatar")
-.addUserOption(o=>o.setName("usuario")),
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário"))
 
 new SlashCommandBuilder()
 .setName("userinfo")
 .setDescription("Informações do usuário")
-.addUserOption(o=>o.setName("usuario")),
+.addUserOption(o=>o.setName("usuario").setDescription("Usuário"))
 
 new SlashCommandBuilder()
 .setName("serverinfo")
