@@ -33,19 +33,23 @@ GatewayIntentBits.MessageContent
 
 const commands = [
 
-new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
+new SlashCommandBuilder()
+.setName("help")
+.setDescription("Ver comandos"),
 
-new SlashCommandBuilder().setName("ticket").setDescription("Abrir painel de ticket"),
+new SlashCommandBuilder()
+.setName("ticket")
+.setDescription("Abrir painel de ticket"),
 
 new SlashCommandBuilder()
 .setName("limpar")
 .setDescription("Apagar mensagens")
-.addIntegerOption(o=>o.setName("quantidade").setRequired(true)),
+.addIntegerOption(o=>o.setName("quantidade").setDescription("Quantidade").setRequired(true)),
 
 new SlashCommandBuilder()
 .setName("enviarmensagem")
 .setDescription("Enviar mensagem pelo bot")
-.addStringOption(o=>o.setName("mensagem").setRequired(true)),
+.addStringOption(o=>o.setName("mensagem").setDescription("Mensagem").setRequired(true)),
 
 new SlashCommandBuilder()
 .setName("avatar")
@@ -63,17 +67,17 @@ new SlashCommandBuilder()
 
 new SlashCommandBuilder()
 .setName("embed")
-.setDescription("Criar embed")
-.addStringOption(o=>o.setName("titulo").setRequired(true))
-.addStringOption(o=>o.setName("descricao").setRequired(true)),
+.setDescription("Enviar embed")
+.addStringOption(o=>o.setName("titulo").setDescription("Título").setRequired(true))
+.addStringOption(o=>o.setName("descricao").setDescription("Descrição").setRequired(true))
 
-].map(c=>c.toJSON());
+].map(c=>c.toJSON())
 
 const rest = new REST({version:"10"}).setToken(TOKEN)
 
 client.once("ready", async () => {
 
-console.log("BOT ONLINE")
+console.log(`Bot online como ${client.user.tag}`)
 
 await rest.put(
 Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
@@ -84,7 +88,7 @@ Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
 
 client.on("interactionCreate", async interaction => {
 
-if(interaction.isChatInputCommand()){
+if(!interaction.isChatInputCommand()) return
 
 if(interaction.commandName === "help"){
 
@@ -174,44 +178,27 @@ const descricao = interaction.options.getString("descricao")
 const embed = new EmbedBuilder()
 .setTitle(titulo)
 .setDescription(descricao)
-.setThumbnail("https://i.imgur.com/TJ7PqFf.png")
-.setImage("https://i.imgur.com/4M34hi2.png")
+.setImage("https://i.supaimg.com/4094cff7-47c8-488d-8754-3d34606a8df4/8cabf436-ce4a-497a-9f69-975fbdd829ab.png")
 
 interaction.reply({embeds:[embed]})
 
   }
 
-  if(interaction.commandName === "ticket"){
+if(interaction.commandName === "ticket"){
 
 const embed = new EmbedBuilder()
 .setTitle("Central de Atendimento")
-.setDescription("Selecione uma opção abaixo para abrir ticket.")
+.setDescription("Selecione uma opção para abrir ticket")
 .setImage("https://i.supaimg.com/4094cff7-47c8-488d-8754-3d34606a8df4/8cabf436-ce4a-497a-9f69-975fbdd829ab.png")
 
 const menu = new StringSelectMenuBuilder()
 .setCustomId("ticket_menu")
 .setPlaceholder("Escolha uma opção")
 .addOptions([
-{
-label:"SUPORTE",
-emoji:"⚒️",
-value:"suporte"
-},
-{
-label:"REEMBOLSO",
-emoji:"💸",
-value:"reembolso"
-},
-{
-label:"VAGAS",
-emoji:"👤",
-value:"vagas"
-},
-{
-label:"RECEBER PREMIAÇÕES",
-emoji:"💰",
-value:"premio"
-}
+{label:"SUPORTE",emoji:"⚒️",value:"suporte"},
+{label:"REEMBOLSO",emoji:"💸",value:"reembolso"},
+{label:"VAGAS",emoji:"👤",value:"vagas"},
+{label:"RECEBER PREMIAÇÕES",emoji:"💰",value:"premio"}
 ])
 
 const row = new ActionRowBuilder().addComponents(menu)
@@ -220,10 +207,9 @@ interaction.reply({embeds:[embed],components:[row]})
 
 }
 
-}
 })
 
-          client.on("interactionCreate", async interaction => {
+client.on("interactionCreate", async interaction => {
 
 if(!interaction.isStringSelectMenu()) return
 
@@ -263,12 +249,7 @@ new ButtonBuilder()
 new ButtonBuilder()
 .setCustomId("notificar_usuario")
 .setLabel("👤 Notificar Usuário")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("adicionar_usuario")
-.setLabel("🚨 Adicionar Usuário")
-.setStyle(ButtonStyle.Secondary)
+.setStyle(ButtonStyle.Primary)
 
 )
 
@@ -284,7 +265,7 @@ interaction.reply({content:`Ticket criado: ${canal}`,ephemeral:true})
 
 })
 
-  client.on("interactionCreate", async interaction => {
+client.on("interactionCreate", async interaction => {
 
 if(!interaction.isButton()) return
 
@@ -308,7 +289,7 @@ const member = await client.users.fetch(user.id)
 
 member.send("Você abriu um ticket e a equipe já foi notificada.")
 
-interaction.reply({content:"Usuário notificado.",ephemeral:true})
+interaction.reply({content:"Usuário notificado",ephemeral:true})
 
 }
 
