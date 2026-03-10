@@ -67,7 +67,7 @@ new SlashCommandBuilder()
 .addStringOption(o=>o.setName("titulo").setRequired(true))
 .addStringOption(o=>o.setName("descricao").setRequired(true)),
 
-].map(c=>c.toJSON())
+].map(c=>c.toJSON());
 
 const rest = new REST({version:"10"}).setToken(TOKEN)
 
