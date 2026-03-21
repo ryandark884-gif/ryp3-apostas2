@@ -70,6 +70,8 @@ client.once("ready", async () => {
 })
 
 client.on("interactionCreate", async (interaction) => {
+
+  // COMANDOS
   if (interaction.isChatInputCommand()) {
 
     if (interaction.commandName === "help") {
@@ -108,9 +110,11 @@ client.on("interactionCreate", async (interaction) => {
       return interaction.reply({ embeds: [embed], components: [row] })
     }
 
-}
+  } // ← ESSA CHAVE TAVA FALTANDO
 
+  // MENU
   if (interaction.isStringSelectMenu()) {
+
     if (interaction.customId === "ticket_menu") {
 
       const categoria = interaction.guild.channels.cache.find(c => c.name === "╭─ 🛎️・ATENDIMENTO")
@@ -137,7 +141,8 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
-if (interaction.isButton()) {
+  // BOTÕES
+  if (interaction.isButton()) {
 
     if (interaction.customId === "fechar") {
       return interaction.channel.delete()
@@ -155,6 +160,7 @@ if (interaction.isButton()) {
       return interaction.reply("@here atendimento solicitado!")
     }
   }
+
 })
 
 client.login(TOKEN)
