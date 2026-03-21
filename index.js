@@ -71,7 +71,6 @@ client.once("ready", async () => {
 
 client.on("interactionCreate", async (interaction) => {
 
-  // COMANDOS
   if (interaction.isChatInputCommand()) {
 
     if (interaction.commandName === "help") {
@@ -137,10 +136,8 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.channel.send(msg)
       return interaction.reply({ content: "Mensagem enviada!", ephemeral: true })
     }
-
   }
 
-  // MENU
   if (interaction.isStringSelectMenu()) {
 
     if (interaction.customId === "ticket_menu") {
@@ -165,25 +162,25 @@ client.on("interactionCreate", async (interaction) => {
 
       const botoes = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("fechar")
+          .setCustomId(`fechar_${interaction.user.id}`)
           .setLabel("Fechar")
           .setEmoji("🔒")
           .setStyle(ButtonStyle.Danger),
 
         new ButtonBuilder()
-          .setCustomId("assumir")
+          .setCustomId(`assumir_${interaction.user.id}`)
           .setLabel("Assumir")
           .setEmoji("👨‍💼")
           .setStyle(ButtonStyle.Primary),
 
         new ButtonBuilder()
-          .setCustomId("add")
+          .setCustomId(`add_${interaction.user.id}`)
           .setLabel("Adicionar")
           .setEmoji("➕")
           .setStyle(ButtonStyle.Secondary),
 
         new ButtonBuilder()
-          .setCustomId("notificar")
+          .setCustomId(`notificar_${interaction.user.id}`)
           .setLabel("Notificar")
           .setEmoji("📢")
           .setStyle(ButtonStyle.Success)
@@ -198,23 +195,33 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
-  // BOTÕES
   if (interaction.isButton()) {
 
-    if (interaction.customId === "fechar") {
+    const [acao, userId] = interaction.customId.split("_")
+
+    if (acao === "fechar") {
       return interaction.channel.delete()
     }
 
-    if (interaction.customId === "assumir") {
+    if (acao === "assumir") {
       return interaction.reply("Ticket assumido!")
     }
 
-    if (interaction.customId === "add") {
+    if (acao === "add") {
       return interaction.reply("Use comando manual para adicionar alguém")
     }
 
-    if (interaction.customId === "notificar") {
-      return interaction.reply("@here atendimento solicitado!")
+    if (acao === "notificar") {
+      try {
+        const user = await client.users.fetch(userId)
+
+        await user.send(`Você abriu um ticket no servidor ${interaction.guild.name}! Aguarde atendimento.`)
+
+        return interaction.reply({ content: "Usuário notificado na DM!", ephemeral: true })
+
+      } catch {
+        return interaction.reply({ content: "Não consegui enviar DM para o usuário!", ephemeral: true })
+      }
     }
   }
 
