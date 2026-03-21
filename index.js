@@ -21,9 +21,9 @@ const client = new Client({
   ]
 })
 
-const TOKEN = "process.env.TOKEN"
-const CLIENT_ID = "process.env.CLIENT_ID"
-const GUILD_ID = "process.env.GUILD_ID"
+const TOKEN = process.env.TOKEN
+const CLIENT_ID = process.env.CLIENT_ID
+const GUILD_ID = process.env.GUILD_ID
 
 let ticketConfig = {
   descricao: "Selecione uma opção para abrir ticket",
