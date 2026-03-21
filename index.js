@@ -22,7 +22,6 @@ const WELCOME_CHANNEL = "1473752318800433313"
 
 let ticketCount = 0
 
-// 🔥 CONFIG DO PAINEL
 let ticketConfig = {
 descricao: "Selecione uma opção para abrir ticket",
 imagem: "https://i.supaimg.com/4094cff7-47c8-488d-8754-3d34606a8df4/8cabf436-ce4a-497a-9f69-975fbdd829ab.png"
@@ -39,17 +38,9 @@ GatewayIntentBits.MessageContent
 
 const commands = [
 
-new SlashCommandBuilder()
-.setName("help")
-.setDescription("Ver comandos"),
-
-new SlashCommandBuilder()
-.setName("ticket")
-.setDescription("Abrir painel de ticket"),
-
-new SlashCommandBuilder()
-.setName("painelticket")
-.setDescription("Configurar painel de ticket"),
+new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
+new SlashCommandBuilder().setName("ticket").setDescription("Abrir painel de ticket"),
+new SlashCommandBuilder().setName("painelticket").setDescription("Configurar painel de ticket"),
 
 new SlashCommandBuilder()
 .setName("limpar")
@@ -101,22 +92,7 @@ client.on("interactionCreate", async interaction => {
 if(!interaction.isChatInputCommand()) return
 
 if(interaction.commandName === "help"){
-
-const embed = new EmbedBuilder()
-.setTitle("Comandos do bot")
-.setDescription(`
-/ticket
-/painelticket
-/limpar
-/enviarmensagem
-/avatar
-/userinfo
-/serverinfo
-/embed
-`)
-
-interaction.reply({embeds:[embed]})
-
+interaction.reply("Comandos: /ticket /painelticket /limpar /enviarmensagem /avatar /userinfo /serverinfo")
 }
 
 if(interaction.commandName === "painelticket"){
@@ -126,17 +102,8 @@ const embed = new EmbedBuilder()
 .setDescription("Configure o ticket abaixo")
 
 const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("config_desc")
-.setLabel("📝 Alterar Descrição")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("config_img")
-.setLabel("🖼️ Alterar Imagem")
-.setStyle(ButtonStyle.Secondary)
-
+new ButtonBuilder().setCustomId("config_desc").setLabel("📝 Alterar Descrição").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("config_img").setLabel("🖼️ Alterar Imagem").setStyle(ButtonStyle.Secondary)
 )
 
 interaction.reply({embeds:[embed],components:[row]})
@@ -144,39 +111,26 @@ interaction.reply({embeds:[embed],components:[row]})
 }
 
 if(interaction.commandName === "limpar"){
-
 const q = interaction.options.getInteger("quantidade")
-
 await interaction.channel.bulkDelete(q)
-
 interaction.reply({content:`${q} mensagens apagadas`,ephemeral:true})
-
 }
 
 if(interaction.commandName === "enviarmensagem"){
-
 const msg = interaction.options.getString("mensagem")
-
 await interaction.channel.send(msg)
-
 interaction.reply({content:"Mensagem enviada",ephemeral:true})
-
 }
 
 if(interaction.commandName === "avatar"){
-
 const user = interaction.options.getUser("usuario") || interaction.user
-
 const embed = new EmbedBuilder()
 .setTitle(`Avatar de ${user.username}`)
 .setImage(user.displayAvatarURL({size:1024,dynamic:true}))
-
 interaction.reply({embeds:[embed]})
-
 }
 
 if(interaction.commandName === "userinfo"){
-
 const user = interaction.options.getUser("usuario") || interaction.user
 const member = interaction.guild.members.cache.get(user.id)
 
@@ -190,23 +144,17 @@ const embed = new EmbedBuilder()
 )
 
 interaction.reply({embeds:[embed]})
-
 }
 
 if(interaction.commandName === "serverinfo"){
-
 const guild = interaction.guild
-
 const embed = new EmbedBuilder()
 .setTitle(guild.name)
 .setDescription(`Membros: ${guild.memberCount}`)
-
 interaction.reply({embeds:[embed]})
-
 }
 
 if(interaction.commandName === "embed"){
-
 const titulo = interaction.options.getString("titulo")
 const descricao = interaction.options.getString("descricao")
 
@@ -216,7 +164,6 @@ const embed = new EmbedBuilder()
 .setImage(ticketConfig.imagem)
 
 interaction.reply({embeds:[embed]})
-
 }
 
 if(interaction.commandName === "ticket"){
@@ -257,10 +204,8 @@ const filter = m => m.author.id === interaction.user.id
 const collector = interaction.channel.createMessageCollector({filter,time:30000,max:1})
 
 collector.on("collect", msg => {
-
 ticketConfig.descricao = msg.content
 msg.reply("Descrição atualizada!")
-
 })
 
 }
@@ -274,10 +219,8 @@ const filter = m => m.author.id === interaction.user.id
 const collector = interaction.channel.createMessageCollector({filter,time:30000,max:1})
 
 collector.on("collect", msg => {
-
 ticketConfig.imagem = msg.content
 msg.reply("Imagem atualizada!")
-
 })
 
 }
@@ -326,7 +269,17 @@ new ButtonBuilder()
 new ButtonBuilder()
 .setCustomId("notificar_usuario")
 .setLabel("👤 Notificar Usuário")
-.setStyle(ButtonStyle.Primary)
+.setStyle(ButtonStyle.Primary),
+
+new ButtonBuilder()
+.setCustomId("assumir_ticket")
+.setLabel("📌 Assumir Ticket")
+.setStyle(ButtonStyle.Success),
+
+new ButtonBuilder()
+.setCustomId("add_usuario")
+.setLabel("➕ Adicionar Usuário")
+.setStyle(ButtonStyle.Secondary)
 
 )
 
@@ -350,9 +303,7 @@ if(!interaction.member.roles.cache.has(STAFF_ROLE))
 return interaction.reply({content:"Apenas staff pode usar isso",ephemeral:true})
 
 if(interaction.customId === "fechar_ticket"){
-
 interaction.channel.delete()
-
 }
 
 if(interaction.customId === "notificar_usuario"){
@@ -363,10 +314,36 @@ const user = interaction.channel.permissionOverwrites.cache
 if(!user) return
 
 const member = await client.users.fetch(user.id)
-
 member.send("Você abriu um ticket e a equipe já foi notificada.")
 
 interaction.reply({content:"Usuário notificado",ephemeral:true})
+
+}
+
+if(interaction.customId === "assumir_ticket"){
+interaction.reply({content:`${interaction.user} assumiu o ticket`})
+}
+
+if(interaction.customId === "add_usuario"){
+
+interaction.reply({content:"Mencione o usuário que deseja adicionar.",ephemeral:true})
+
+const filter = m => m.author.id === interaction.user.id
+
+const collector = interaction.channel.createMessageCollector({filter,time:30000,max:1})
+
+collector.on("collect", async msg => {
+
+const user = msg.mentions.users.first()
+if(!user) return msg.reply("Usuário inválido.")
+
+await interaction.channel.permissionOverwrites.edit(user.id,{
+ViewChannel:true
+})
+
+msg.reply(`✅ ${user} foi adicionado ao ticket`)
+
+})
 
 }
 
