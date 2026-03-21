@@ -120,10 +120,20 @@ client.on("interactionCreate", async (interaction) => {
       const categoria = interaction.guild.channels.cache.find(c => c.name === "╭─ 🛎️・ATENDIMENTO")
 
       const canal = await interaction.guild.channels.create({
-        name: `ticket-${interaction.user.username}`,
-        type: ChannelType.GuildText,
-        parent: categoria ? categoria.id : null
-      })
+  name: `ticket-${interaction.user.username}`,
+  type: ChannelType.GuildText,
+  parent: categoria ? categoria.id : null,
+  permissionOverwrites: [
+    {
+      id: interaction.guild.id,
+      deny: [PermissionsBitField.Flags.ViewChannel]
+    },
+    {
+      id: interaction.user.id,
+      allow: [PermissionsBitField.Flags.ViewChannel]
+    }
+  ]
+})
 
       const botoes = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("fechar").setLabel("Fechar").setStyle(ButtonStyle.Danger),
