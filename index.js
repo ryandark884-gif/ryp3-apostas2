@@ -31,7 +31,7 @@ intents:[
 GatewayIntentBits.Guilds,
 GatewayIntentBits.GuildMembers,
 GatewayIntentBits.GuildMessages,
-GatewayIntentBits.MessageContent
+GatewayIntentBits.MessageContent,
 ]
 })
 
@@ -71,7 +71,7 @@ new SlashCommandBuilder()
 .setName("embed")
 .setDescription("Enviar embed")
 .addStringOption(o=>o.setName("titulo").setDescription("Título").setRequired(true))
-.addStringOption(o=>o.setName("descricao").setDescription("Descrição").setRequired(true))
+.addStringOption(o=>o.setName("descricao").setDescription("Descrição").setRequired(true)),
 
 ].map(c=>c.toJSON())
 
