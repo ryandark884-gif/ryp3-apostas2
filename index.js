@@ -19,7 +19,7 @@ const TOKEN = process.env.TOKEN
 const CLIENT_ID = process.env.CLIENT_ID
 const GUILD_ID = process.env.GUILD_ID
 
-const STAFF_ROLE = "1463198259186106429"
+const STAFF_ROLE = "owner"
 const WELCOME_CHANNEL = "1473752318800433313"
 
 let ticketCount = 0
