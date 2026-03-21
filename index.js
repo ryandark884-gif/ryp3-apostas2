@@ -1,3 +1,5 @@
+// COLE EXATAMENTE ISSO
+
 const {
 Client,
 GatewayIntentBits,
@@ -80,10 +82,36 @@ client.once("ready", async () => {
 
 console.log(`Bot online como ${client.user.tag}`)
 
+// TEU SERVIDOR (instantâneo)
 await rest.put(
 Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
 {body:commands}
 )
+
+// 🔥 TODOS SERVIDORES (instantâneo também)
+client.guilds.cache.forEach(async (guild) => {
+await rest.put(
+Routes.applicationGuildCommands(CLIENT_ID, guild.id),
+{body:commands}
+)
+})
+
+})
+
+// 🔥 NOVOS SERVIDORES AUTOMÁTICO
+client.on("guildCreate", async (guild) => {
+
+try {
+await rest.put(
+Routes.applicationGuildCommands(CLIENT_ID, guild.id),
+{body:commands}
+)
+
+console.log(`Comandos registrados em: ${guild.name}`)
+
+} catch (err) {
+console.log(err)
+}
 
 })
 
@@ -191,38 +219,30 @@ interaction.reply({embeds:[embed],components:[row]})
 
 })
 
+// resto do código (botões e ticket) CONTINUA IGUAL
+
 client.on("interactionCreate", async interaction => {
 
 if(interaction.isButton()){
 
 if(interaction.customId === "config_desc"){
-
 await interaction.reply({content:"Digite a nova descrição:",ephemeral:true})
-
 const filter = m => m.author.id === interaction.user.id
-
 const collector = interaction.channel.createMessageCollector({filter,time:30000,max:1})
-
 collector.on("collect", msg => {
 ticketConfig.descricao = msg.content
 msg.reply("Descrição atualizada!")
 })
-
 }
 
 if(interaction.customId === "config_img"){
-
 await interaction.reply({content:"Envie a URL da nova imagem:",ephemeral:true})
-
 const filter = m => m.author.id === interaction.user.id
-
 const collector = interaction.channel.createMessageCollector({filter,time:30000,max:1})
-
 collector.on("collect", msg => {
 ticketConfig.imagem = msg.content
 msg.reply("Imagem atualizada!")
 })
-
 }
 
 }
@@ -244,43 +264,17 @@ name:`ticket-${ticketCount}`,
 type:ChannelType.GuildText,
 parent:categoria ? categoria.id : null,
 permissionOverwrites:[
-{
-id:interaction.guild.id,
-deny:[PermissionsBitField.Flags.ViewChannel]
-},
-{
-id:interaction.user.id,
-allow:[PermissionsBitField.Flags.ViewChannel]
-},
-{
-id:STAFF_ROLE,
-allow:[PermissionsBitField.Flags.ViewChannel]
-}
+{ id:interaction.guild.id, deny:[PermissionsBitField.Flags.ViewChannel] },
+{ id:interaction.user.id, allow:[PermissionsBitField.Flags.ViewChannel] },
+{ id:STAFF_ROLE, allow:[PermissionsBitField.Flags.ViewChannel] }
 ]
 })
 
 const row = new ActionRowBuilder().addComponents(
-
-new ButtonBuilder()
-.setCustomId("fechar_ticket")
-.setLabel("🚫 Fechar Ticket")
-.setStyle(ButtonStyle.Danger),
-
-new ButtonBuilder()
-.setCustomId("notificar_usuario")
-.setLabel("👤 Notificar Usuário")
-.setStyle(ButtonStyle.Primary),
-
-new ButtonBuilder()
-.setCustomId("assumir_ticket")
-.setLabel("📌 Assumir Ticket")
-.setStyle(ButtonStyle.Success),
-
-new ButtonBuilder()
-.setCustomId("add_usuario")
-.setLabel("➕ Adicionar Usuário")
-.setStyle(ButtonStyle.Secondary)
-
+new ButtonBuilder().setCustomId("fechar_ticket").setLabel("🚫 Fechar Ticket").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("notificar_usuario").setLabel("👤 Notificar Usuário").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("assumir_ticket").setLabel("📌 Assumir Ticket").setStyle(ButtonStyle.Success),
+new ButtonBuilder().setCustomId("add_usuario").setLabel("➕ Adicionar Usuário").setStyle(ButtonStyle.Secondary)
 )
 
 const embed = new EmbedBuilder()
