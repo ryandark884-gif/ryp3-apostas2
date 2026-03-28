@@ -324,7 +324,12 @@ parent:categoria ? categoria.id : null,
 permissionOverwrites:[
 { id:interaction.guild.id, deny:[PermissionsBitField.Flags.ViewChannel] },
 { id:interaction.user.id, allow:[PermissionsBitField.Flags.ViewChannel] },
-{ id:STAFF_ROLE, allow:[PermissionsBitField.Flags.ViewChannel] }
+...interaction.guild.roles.cache
+.filter(role => STAFF_ROLES.includes(role.name))
+.map(role => ({
+  id: role.id,
+  allow: [PermissionsBitField.Flags.ViewChannel]
+}))
 ]
 })
 
