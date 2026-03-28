@@ -351,7 +351,7 @@ return interaction.reply({content:`Ticket criado: ${canal}`,ephemeral:true})
 
 if(interaction.isButton()){
 
-if(!interaction.member.roles.cache.has(STAFF_ROLE))
+if(!interaction.member.roles.cache.some(role => STAFF_ROLES.includes(role.name)))
 return interaction.reply({content:"Apenas staff pode usar isso",ephemeral:true})
 
 if(interaction.customId === "fechar_ticket"){
