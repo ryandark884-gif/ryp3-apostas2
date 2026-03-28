@@ -19,8 +19,8 @@ TextInputStyle
 const TOKEN = process.env.TOKEN
 const CLIENT_ID = process.env.CLIENT_ID
 
-// 🔥 AGORA SEM ID FIXO (VÁRIOS CARGOS)
-const STAFF_ROLES = ["SUPORTE", "ADMIN", "MOD", "OWNER"]
+const STAFF_ROLES = ["OWNER", "SUPORTE", "MOD", "ADMIN"]
+const WELCOME_CHANNEL = "1473752318800433313"
 
 let ticketCount = 0
 
@@ -41,7 +41,9 @@ GatewayIntentBits.MessageContent
 const commands = [
 
 new SlashCommandBuilder().setName("help").setDescription("Ver comandos"),
+
 new SlashCommandBuilder().setName("ticket").setDescription("Abrir painel de ticket"),
+
 new SlashCommandBuilder().setName("painel-ticket").setDescription("Configurar painel de ticket"),
 
 new SlashCommandBuilder().setName("limpar")
@@ -76,7 +78,6 @@ client.once("ready", async () => {
 
 console.log(`Bot online como ${client.user.tag}`)
 
-// 🔥 comandos instantâneos em TODOS servidores
 client.guilds.cache.forEach(async (guild) => {
 await rest.put(
 Routes.applicationGuildCommands(CLIENT_ID, guild.id),
@@ -98,8 +99,10 @@ client.on("interactionCreate", async interaction => {
 if(interaction.isChatInputCommand()){
 
 if(interaction.commandName === "help"){
-return interaction.reply({
-embeds:[new EmbedBuilder().setTitle("Comandos").setDescription(`
+
+const embed = new EmbedBuilder()
+.setTitle("Comandos do bot")
+.setDescription(`
 /ticket
 /painel-ticket
 /limpar
@@ -108,21 +111,110 @@ embeds:[new EmbedBuilder().setTitle("Comandos").setDescription(`
 /userinfo
 /serverinfo
 /embed
-`)]
-})
+`)
+
+return interaction.reply({embeds:[embed]})
+
 }
 
 if(interaction.commandName === "painel-ticket"){
 
 const embed = new EmbedBuilder()
 .setTitle("Painel de Configuração")
+.setDescription("Configure o ticket abaixo")
 
 const row = new ActionRowBuilder().addComponents(
-new ButtonBuilder().setCustomId("config_desc").setLabel("📝 Alterar Descrição").setStyle(ButtonStyle.Primary),
-new ButtonBuilder().setCustomId("config_img").setLabel("🖼️ Alterar Imagem").setStyle(ButtonStyle.Secondary)
+
+new ButtonBuilder()
+.setCustomId("config_desc")
+.setLabel("📝 Alterar Descrição")
+.setStyle(ButtonStyle.Primary),
+
+new ButtonBuilder()
+.setCustomId("config_img")
+.setLabel("🖼️ Alterar Imagem")
+.setStyle(ButtonStyle.Secondary)
+
 )
 
 return interaction.reply({embeds:[embed],components:[row]})
+
+}
+
+if(interaction.commandName === "limpar"){
+
+const q = interaction.options.getInteger("quantidade")
+
+await interaction.channel.bulkDelete(q)
+
+return interaction.reply({content:`${q} mensagens apagadas`,ephemeral:true})
+
+}
+
+if(interaction.commandName === "enviarmensagem"){
+
+const msg = interaction.options.getString("mensagem")
+
+await interaction.channel.send(msg)
+
+return interaction.reply({content:"Mensagem enviada",ephemeral:true})
+
+}
+
+if(interaction.commandName === "avatar"){
+
+const user = interaction.options.getUser("usuario") || interaction.user
+
+const embed = new EmbedBuilder()
+.setTitle(`Avatar de ${user.username}`)
+.setImage(user.displayAvatarURL({size:1024,dynamic:true}))
+
+return interaction.reply({embeds:[embed]})
+
+}
+
+if(interaction.commandName === "userinfo"){
+
+const user = interaction.options.getUser("usuario") || interaction.user
+const member = interaction.guild.members.cache.get(user.id)
+
+const embed = new EmbedBuilder()
+.setTitle(user.username)
+.setThumbnail(user.displayAvatarURL({dynamic:true}))
+.addFields(
+{name:"ID",value:user.id},
+{name:"Conta criada",value:`<t:${Math.floor(user.createdTimestamp/1000)}:R>`},
+{name:"Entrou no servidor",value:`<t:${Math.floor(member.joinedTimestamp/1000)}:R>`}
+)
+
+return interaction.reply({embeds:[embed]})
+
+}
+
+if(interaction.commandName === "serverinfo"){
+
+const guild = interaction.guild
+
+const embed = new EmbedBuilder()
+.setTitle(guild.name)
+.setDescription(`Membros: ${guild.memberCount}`)
+
+return interaction.reply({embeds:[embed]})
+
+}
+
+if(interaction.commandName === "embed"){
+
+const titulo = interaction.options.getString("titulo")
+const descricao = interaction.options.getString("descricao")
+
+const embed = new EmbedBuilder()
+.setTitle(titulo)
+.setDescription(descricao)
+.setImage(ticketConfig.imagem)
+
+return interaction.reply({embeds:[embed]})
+
 }
 
 if(interaction.commandName === "ticket"){
@@ -134,180 +226,184 @@ const embed = new EmbedBuilder()
 
 const menu = new StringSelectMenuBuilder()
 .setCustomId("ticket_menu")
+.setPlaceholder("Escolha uma opção")
 .addOptions([
 {label:"SUPORTE",emoji:"⚒️",value:"suporte"},
 {label:"REEMBOLSO",emoji:"💸",value:"reembolso"},
 {label:"VAGAS",emoji:"👤",value:"vagas"},
-{label:"PREMIAÇÕES",emoji:"💰",value:"premio"}
+{label:"RECEBER PREMIAÇÕES",emoji:"💰",value:"premio"}
 ])
 
-return interaction.reply({
-embeds:[embed],
-components:[new ActionRowBuilder().addComponents(menu)]
-})
-}
+const row = new ActionRowBuilder().addComponents(menu)
 
-if(interaction.commandName === "limpar"){
-const q = interaction.options.getInteger("quantidade")
-await interaction.channel.bulkDelete(q)
-return interaction.reply({content:`${q} apagadas`,ephemeral:true})
-}
+return interaction.reply({embeds:[embed],components:[row]})
 
-if(interaction.commandName === "enviarmensagem"){
-const msg = interaction.options.getString("mensagem")
-await interaction.channel.send(msg)
-return interaction.reply({content:"Enviado",ephemeral:true})
-}
-
-if(interaction.commandName === "avatar"){
-const user = interaction.options.getUser("usuario") || interaction.user
-return interaction.reply({
-embeds:[new EmbedBuilder().setImage(user.displayAvatarURL({dynamic:true,size:1024}))]
-})
-}
-
-if(interaction.commandName === "userinfo"){
-const user = interaction.options.getUser("usuario") || interaction.user
-const member = interaction.guild.members.cache.get(user.id)
-
-return interaction.reply({
-embeds:[new EmbedBuilder()
-.setTitle(user.username)
-.addFields(
-{name:"ID",value:user.id},
-{name:"Criado",value:`<t:${Math.floor(user.createdTimestamp/1000)}:R>`},
-{name:"Entrou",value:`<t:${Math.floor(member.joinedTimestamp/1000)}:R>`}
-)]
-})
-}
-
-if(interaction.commandName === "serverinfo"){
-return interaction.reply({
-embeds:[new EmbedBuilder()
-.setTitle(interaction.guild.name)
-.setDescription(`Membros: ${interaction.guild.memberCount}`)]
-})
-}
-
-if(interaction.commandName === "embed"){
-const t = interaction.options.getString("titulo")
-const d = interaction.options.getString("descricao")
-
-return interaction.reply({
-embeds:[new EmbedBuilder().setTitle(t).setDescription(d).setImage(ticketConfig.imagem)]
-})
 }
 
 }
 
-// 🔥 MODAL CONFIG
+/* BOTÕES DO PAINEL COM MODAL */
 if(interaction.isButton()){
 
 if(interaction.customId === "config_desc"){
-const modal = new ModalBuilder()
-.setCustomId("desc")
-.setTitle("Descrição")
 
-modal.addComponents(
-new ActionRowBuilder().addComponents(
-new TextInputBuilder()
-.setCustomId("d")
-.setLabel("Nova descrição")
+const modal = new ModalBuilder()
+.setCustomId("modal_desc")
+.setTitle("Alterar Descrição")
+
+const input = new TextInputBuilder()
+.setCustomId("nova_desc")
+.setLabel("Digite a nova descrição")
 .setStyle(TextInputStyle.Paragraph)
-))
+
+const row = new ActionRowBuilder().addComponents(input)
+
+modal.addComponents(row)
 
 return interaction.showModal(modal)
+
 }
 
 if(interaction.customId === "config_img"){
-const modal = new ModalBuilder()
-.setCustomId("img")
-.setTitle("Imagem")
 
-modal.addComponents(
-new ActionRowBuilder().addComponents(
-new TextInputBuilder()
-.setCustomId("i")
-.setLabel("URL")
+const modal = new ModalBuilder()
+.setCustomId("modal_img")
+.setTitle("Alterar Imagem")
+
+const input = new TextInputBuilder()
+.setCustomId("nova_img")
+.setLabel("Cole a URL da imagem")
 .setStyle(TextInputStyle.Short)
-))
+
+const row = new ActionRowBuilder().addComponents(input)
+
+modal.addComponents(row)
 
 return interaction.showModal(modal)
+
 }
 
 }
 
 if(interaction.isModalSubmit()){
-if(interaction.customId === "desc"){
-ticketConfig.descricao = interaction.fields.getTextInputValue("d")
-return interaction.reply({content:"Atualizado",ephemeral:true})
+
+if(interaction.customId === "modal_desc"){
+
+const novaDesc = interaction.fields.getTextInputValue("nova_desc")
+ticketConfig.descricao = novaDesc
+
+return interaction.reply({content:"✅ Descrição atualizada!",ephemeral:true})
+
 }
 
-if(interaction.customId === "img"){
-ticketConfig.imagem = interaction.fields.getTextInputValue("i")
-return interaction.reply({content:"Atualizado",ephemeral:true})
-}
+if(interaction.customId === "modal_img"){
+
+const novaImg = interaction.fields.getTextInputValue("nova_img")
+ticketConfig.imagem = novaImg
+
+return interaction.reply({content:"✅ Imagem atualizada!",ephemeral:true})
+
 }
 
-// 🔥 CRIAR TICKET (COM VÁRIOS CARGOS)
+}
+
+/* RESTO DO TEU CÓDIGO (ticket, botões, etc) */
+
 if(interaction.isStringSelectMenu()){
 
 if(interaction.customId === "ticket_menu"){
 
 ticketCount++
 
-const categoria = interaction.guild.channels.cache.find(c=>c.name==="╭─ 🛎️・ATENDIMENTO")
-
-const staffRoles = interaction.guild.roles.cache.filter(r =>
-STAFF_ROLES.includes(r.name)
-)
-
-const overwrites = [
-{ id:interaction.guild.id, deny:[PermissionsBitField.Flags.ViewChannel] },
-{ id:interaction.user.id, allow:[PermissionsBitField.Flags.ViewChannel] }
-]
-
-staffRoles.forEach(role=>{
-overwrites.push({
-id: role.id,
-allow: [PermissionsBitField.Flags.ViewChannel]
-})
-})
+const categoria = interaction.guild.channels.cache.find(c => c.name === "╭─ 🛎️・ATENDIMENTO")
 
 const canal = await interaction.guild.channels.create({
 name:`ticket-${ticketCount}`,
 type:ChannelType.GuildText,
 parent:categoria ? categoria.id : null,
-permissionOverwrites: overwrites
+permissionOverwrites:[
+{ id:interaction.guild.id, deny:[PermissionsBitField.Flags.ViewChannel] },
+{ id:interaction.user.id, allow:[PermissionsBitField.Flags.ViewChannel] },
+{ id:STAFF_ROLE, allow:[PermissionsBitField.Flags.ViewChannel] }
+]
 })
 
 const row = new ActionRowBuilder().addComponents(
-new ButtonBuilder().setCustomId("fechar").setLabel("🚫 Fechar").setStyle(ButtonStyle.Danger),
-new ButtonBuilder().setCustomId("notificar").setLabel("👤 Notificar").setStyle(ButtonStyle.Primary),
-new ButtonBuilder().setCustomId("assumir").setLabel("✅ Assumir").setStyle(ButtonStyle.Success)
+
+new ButtonBuilder().setCustomId("fechar_ticket").setLabel("🚫 Fechar Ticket").setStyle(ButtonStyle.Danger),
+new ButtonBuilder().setCustomId("notificar_usuario").setLabel("👤 Notificar Usuário").setStyle(ButtonStyle.Primary),
+new ButtonBuilder().setCustomId("adicionar_usuario").setLabel("➕ Adicionar Usuário").setStyle(ButtonStyle.Secondary),
+new ButtonBuilder().setCustomId("assumir_ticket").setLabel("✅ Assumir Ticket").setStyle(ButtonStyle.Success)
+
 )
 
-await canal.send({content:`${interaction.user}`,components:[row]})
+const embed = new EmbedBuilder()
+.setTitle("Ticket aberto")
+.setDescription(`Usuário: ${interaction.user}`)
 
-return interaction.reply({content:`Criado: ${canal}`,ephemeral:true})
+canal.send({embeds:[embed],components:[row]})
+
+return interaction.reply({content:`Ticket criado: ${canal}`,ephemeral:true})
+
 }
 
 }
 
-// 🔥 BOTÕES
 if(interaction.isButton()){
 
-if(interaction.customId==="fechar"){
+if(!interaction.member.roles.cache.has(STAFF_ROLE))
+return interaction.reply({content:"Apenas staff pode usar isso",ephemeral:true})
+
+if(interaction.customId === "fechar_ticket"){
 return interaction.channel.delete()
 }
 
-if(interaction.customId==="assumir"){
-return interaction.reply({content:"Assumido",ephemeral:true})
+if(interaction.customId === "notificar_usuario"){
+
+const user = interaction.channel.permissionOverwrites.cache.find(p => p.type === 1 && p.allow.has("ViewChannel"))
+if(!user) return
+
+const member = await client.users.fetch(user.id)
+member.send("Você abriu um ticket e a equipe já foi notificada.")
+
+return interaction.reply({content:"Usuário notificado",ephemeral:true})
+
 }
 
-if(interaction.customId==="notificar"){
-interaction.channel.send("@here atendimento!")
-return interaction.reply({content:"Notificado",ephemeral:true})
+if(interaction.customId === "assumir_ticket"){
+return interaction.reply({content:"Ticket assumido!",ephemeral:true})
+}
+
+if(interaction.customId === "adicionar_usuario"){
+
+const members = interaction.guild.members.cache.filter(m => !m.user.bot).map(m => {
+return { label: m.user.username, value: m.id }
+}).slice(0,25)
+
+const menu = new StringSelectMenuBuilder()
+.setCustomId(`add_user_menu_${interaction.channel.id}`)
+.setPlaceholder("Selecione o usuário")
+.addOptions(members)
+
+const row = new ActionRowBuilder().addComponents(menu)
+
+return interaction.reply({content:"Selecione o usuário:",components:[row],ephemeral:true})
+
+}
+
+}
+
+if(interaction.isStringSelectMenu()){
+
+if(interaction.customId.startsWith("add_user_menu_")){
+
+const userId = interaction.values[0]
+const member = await interaction.guild.members.fetch(userId)
+
+await interaction.channel.permissionOverwrites.edit(member.id,{ViewChannel:true})
+
+return interaction.reply({content:`Usuário adicionado!`,ephemeral:true})
+
 }
 
 }
